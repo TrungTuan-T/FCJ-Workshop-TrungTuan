@@ -10,11 +10,11 @@ chapter: false
 
 
 ### Student Information:
-&emsp; **Full Name:** Dang Si Dang Khoa
+&emsp; **Full Name:** Truong Trung Tuan
 
-&emsp; **Phone Number:** 0899044963
+&emsp; **Phone Number:** 08932111352
 
-&emsp; **Email:** dangkhoalms0810@gmail.com
+&emsp; **Email:** truongtuantriplet@gmail.com
 
 &emsp; **University:** Ho Chi Minh City University of Technology and Education
 
@@ -26,7 +26,7 @@ chapter: false
 
 &emsp; **Internship Position:** Workforce Bootcamp - First Cloud AI Journey
 
-&emsp; **Internship Duration:** From 17/04/2026 to 10/07/2026
+&emsp; **Internship Duration:** From 05/05/2026 to 05/08/2026
 
 
 ![Your profile picture](/images/avatar.png)
