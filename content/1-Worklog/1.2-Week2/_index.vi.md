@@ -1,59 +1,47 @@
 ---
 title: "Worklog Tuần 2"
-date: 2024-01-01
+date: 2026
 weight: 1
 chapter: false
 pre: " <b> 1.2. </b> "
 ---
-{{% notice warning %}}
-⚠️ **Lưu ý:** Các thông tin dưới đây chỉ nhằm mục đích tham khảo, vui lòng **không sao chép nguyên văn** cho bài báo cáo của bạn kể cả warning này.
-{{% /notice %}}
 
 
 ### Mục tiêu tuần 2:
 
-* Kết nối, làm quen với các thành viên trong First Cloud AI Journey.
-* Hiểu dịch vụ AWS cơ bản, cách dùng console & CLI.
+* Chuyển từ mô hình database cục bộ sang kiến trúc managed database trên AWS.
+* Thực hành cô lập mạng giữa web server public và database private.
+* Sử dụng tag và resource group để tổ chức tài nguyên cloud.
+* Chuẩn bị nền tảng cho các bài tự động hóa và CI/CD phía sau.
 
 ### Các công việc cần triển khai trong tuần này:
 | Thứ | Công việc                                                                                                                                                                                   | Ngày bắt đầu | Ngày hoàn thành | Nguồn tài liệu                            |
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ | --------------- | ----------------------------------------- |
-| 2   | - Làm quen với các thành viên FCAJ <br> - Đọc và lưu ý các nội quy, quy định tại đơn vị thực tập                                                                                             | 11/08/2025   | 11/08/2025      |
-| 3   | - Tìm hiểu AWS và các loại dịch vụ <br>&emsp; + Compute <br>&emsp; + Storage <br>&emsp; + Networking <br>&emsp; + Database <br>&emsp; + ... <br>                                            | 12/08/2025   | 12/08/2025      | <https://cloudjourney.awsstudygroup.com/> |
-| 4   | - Tạo AWS Free Tier account <br> - Tìm hiểu AWS Console & AWS CLI <br> - **Thực hành:** <br>&emsp; + Tạo AWS account <br>&emsp; + Cài AWS CLI & cấu hình <br> &emsp; + Cách sử dụng AWS CLI | 13/08/2025   | 13/08/2025      | <https://cloudjourney.awsstudygroup.com/> |
-| 5   | - Tìm hiểu EC2 cơ bản: <br>&emsp; + Instance types <br>&emsp; + AMI <br>&emsp; + EBS <br>&emsp; + ... <br> - Các cách remote SSH vào EC2 <br> - Tìm hiểu Elastic IP   <br>                  | 14/08/2025   | 15/08/2025      | <https://cloudjourney.awsstudygroup.com/> |
-| 6   | - **Thực hành:** <br>&emsp; + Tạo EC2 instance <br>&emsp; + Kết nối SSH <br>&emsp; + Gắn EBS volume                                                                                         | 15/08/2025   | 15/08/2025      | <https://cloudjourney.awsstudygroup.com/> |
+| 1   | - Học Amazon RDS với ứng dụng Node.js. <br> - Tạo RDS MySQL trong private subnet, cấu hình DB subnet group và kết nối từ EC2 web server.                                                  | 24/04/2026 | 26/04/2026      | <https://000005.awsstudygroup.com/> |
+| 2   | - Áp dụng security group chaining để bảo vệ database.<br> - Chỉ cho phép traffic MySQL đi từ EC2 Web App Security Group và tránh mở database ra Internet. <br>                                              | 25/04/2026 | 26/04/2026      | <https://000005.awsstudygroup.com/><https://000003.awsstudygroup.com/> |
+| 3   | - Thực hành chiến lược gắn thẻ tài nguyên.<br> - Tạo EC2 cho các môi trường khác nhau và quản lý tag hàng loạt qua EC2 Tags console.<br>  | 27/04/2026   | 28/04/2026      | <https://000027.awsstudygroup.com/> |
+| 4   | - Tạo Resource Group dựa trên tag. <br> - Preview và lưu nhóm tài nguyên theo điều kiện tag của EC2 để dễ tìm kiếm và quản lý.<br>                            | 28/04/2026   | 29/04/2026      | <https://000027.awsstudygroup.com/> |
+
 
 
 ### Kết quả đạt được tuần 2:
 
-* Hiểu AWS là gì và nắm được các nhóm dịch vụ cơ bản: 
-  * Compute
-  * Storage
-  * Networking 
-  * Database
-  * ...
+* Tổng quan:
 
-* Đã tạo và cấu hình AWS Free Tier account thành công.
+Trong tuần này, tôi tập trung vào chủ đề rds, gắn thẻ tài nguyên và nền tảng triển khai ứng dụng. Nội dung được tổng hợp từ worklog theo ngày và biên tập lại thành định dạng báo cáo theo tuần.
 
-* Làm quen với AWS Management Console và biết cách tìm, truy cập, sử dụng dịch vụ từ giao diện web.
+*Kiến thức đã học:
 
-* Cài đặt và cấu hình AWS CLI trên máy tính bao gồm:
-  * Access Key
-  * Secret Key
-  * Region mặc định
-  * ...
+- Chuyển từ mô hình database cục bộ sang kiến trúc managed database trên AWS.
+- Thực hành cô lập mạng giữa web server public và database private.
+- Sử dụng tag và resource group để tổ chức tài nguyên cloud.
+- Chuẩn bị nền tảng cho các bài tự động hóa và CI/CD phía sau.
 
-* Sử dụng AWS CLI để thực hiện các thao tác cơ bản như:
+* Thực hành:
 
-  * Kiểm tra thông tin tài khoản & cấu hình
-  * Lấy danh sách region
-  * Xem dịch vụ EC2
-  * Tạo và quản lý key pair
-  * Kiểm tra thông tin dịch vụ đang chạy
-  * ...
+- Triển khai được ứng dụng web cơ bản kết nối Amazon RDS.
+- Áp dụng mô hình public/private rõ ràng cho tầng ứng dụng và tầng database.
+- Sử dụng tag và resource group để tổ chức tài nguyên, phục vụ các bài governance sau này.
 
-* Có khả năng kết nối giữa giao diện web và CLI để quản lý tài nguyên AWS song song.
-* ...
 
 

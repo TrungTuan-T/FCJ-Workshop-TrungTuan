@@ -5,104 +5,208 @@ weight: 2
 chapter: false
 pre: " <b> 2. </b> "
 ---
-{{% notice warning %}}
-⚠️ **Lưu ý:** Các thông tin dưới đây chỉ nhằm mục đích tham khảo, vui lòng **không sao chép nguyên văn** cho bài báo cáo của bạn kể cả warning này.
-{{% /notice %}}
 
-Tại phần này, bạn cần tóm tắt các nội dung trong workshop mà bạn **dự tính** sẽ làm.
+# AWS Student Management Portal
 
-# IoT Weather Platform for Lab Research  
-## Giải pháp AWS Serverless hợp nhất cho giám sát thời tiết thời gian thực  
+## Cổng thông tin quản lý sinh viên chạy trên hạ tầng AWS
 
-### 1. Tóm tắt điều hành  
-IoT Weather Platform được thiết kế dành cho nhóm *ITea Lab* tại TP. Hồ Chí Minh nhằm nâng cao khả năng thu thập và phân tích dữ liệu thời tiết. Nền tảng hỗ trợ tối đa 5 trạm thời tiết, có khả năng mở rộng lên 10–15 trạm, sử dụng thiết bị biên Raspberry Pi kết hợp cảm biến ESP32 để truyền dữ liệu qua MQTT. Nền tảng tận dụng các dịch vụ AWS Serverless để cung cấp giám sát thời gian thực, phân tích dự đoán và tiết kiệm chi phí, với quyền truy cập giới hạn cho 5 thành viên phòng lab thông qua Amazon Cognito.  
+### 1. Tóm tắt điều hành
 
-### 2. Tuyên bố vấn đề  
-*Vấn đề hiện tại*  
-Các trạm thời tiết hiện tại yêu cầu thu thập dữ liệu thủ công, khó quản lý khi có nhiều trạm. Không có hệ thống tập trung cho dữ liệu hoặc phân tích thời gian thực, và các nền tảng bên thứ ba thường tốn kém và quá phức tạp.  
+Hệ thống được thiết kế theo mô hình đám mây hiện đại, sử dụng kiến trúc không máy chủ (Serverless), tích hợp quy trình tự động hóa và đảm bảo an toàn thông tin đa lớp.
 
-*Giải pháp*  
-Nền tảng sử dụng AWS IoT Core để tiếp nhận dữ liệu MQTT, AWS Lambda và API Gateway để xử lý, Amazon S3 để lưu trữ (bao gồm data lake), và AWS Glue Crawlers cùng các tác vụ ETL để trích xuất, chuyển đổi, tải dữ liệu từ S3 data lake sang một S3 bucket khác để phân tích. AWS Amplify với Next.js cung cấp giao diện web, và Amazon Cognito đảm bảo quyền truy cập an toàn. Tương tự như Thingsboard và CoreIoT, người dùng có thể đăng ký thiết bị mới và quản lý kết nối, nhưng nền tảng này hoạt động ở quy mô nhỏ hơn và phục vụ mục đích sử dụng nội bộ. Các tính năng chính bao gồm bảng điều khiển thời gian thực, phân tích xu hướng và chi phí vận hành thấp.  
+### 2. Tuyên bố vấn đề
 
-*Lợi ích và hoàn vốn đầu tư (ROI)*  
-Giải pháp tạo nền tảng cơ bản để các thành viên phòng lab phát triển một nền tảng IoT lớn hơn, đồng thời cung cấp nguồn dữ liệu cho những người nghiên cứu AI phục vụ huấn luyện mô hình hoặc phân tích. Nền tảng giảm bớt báo cáo thủ công cho từng trạm thông qua hệ thống tập trung, đơn giản hóa quản lý và bảo trì, đồng thời cải thiện độ tin cậy dữ liệu. Chi phí hàng tháng ước tính 0,66 USD (theo AWS Pricing Calculator), tổng cộng 7,92 USD cho 12 tháng. Tất cả thiết bị IoT đã được trang bị từ hệ thống trạm thời tiết hiện tại, không phát sinh chi phí phát triển thêm. Thời gian hoàn vốn 6–12 tháng nhờ tiết kiệm đáng kể thời gian thao tác thủ công.  
+ _Vấn đề hiện tại_
 
-### 3. Kiến trúc giải pháp  
-Nền tảng áp dụng kiến trúc AWS Serverless để quản lý dữ liệu từ 5 trạm dựa trên Raspberry Pi, có thể mở rộng lên 15 trạm. Dữ liệu được tiếp nhận qua AWS IoT Core, lưu trữ trong S3 data lake và xử lý bởi AWS Glue Crawlers và ETL jobs để chuyển đổi và tải vào một S3 bucket khác cho mục đích phân tích. Lambda và API Gateway xử lý bổ sung, trong khi Amplify với Next.js cung cấp bảng điều khiển được bảo mật bởi Cognito.  
+  * Các kiến trúc ứng dụng cũ, truyền thống thường gặp khó khăn trong việc phát hành sản phẩm, khiến thời gian release bị kéo dài, dẫn đến bỏ lỡ cơ hội kinh doanh và giảm doanh thu.
+  * Hệ thống hoạt động kém hiệu quả khi lượng truy cập đột biến (ví dụ: mùa đăng ký tín chỉ, mùa nộp hồ sơ sinh viên), gây tốn kém chi phí duy trì server 24/7 nhưng hiệu suất vẫn không tối ưu.
+  * Quy trình vận hành, deploy mã nguồn thủ công dễ xảy ra sai sót của con người (human error). Đồng thời, việc không tuân thủ nghiêm ngặt các quy định bảo mật hoặc quản lý quyền truy cập lỏng lẻo dễ làm mất an ninh thông tin và suy giảm uy tín hệ thống.
 
-![IoT Weather Station Architecture](/images/2-Proposal/edge_architecture.jpeg)
 
-![IoT Weather Platform Architecture](/images/2-Proposal/platform_architecture.jpeg)
 
-*Dịch vụ AWS sử dụng*  
-- *AWS IoT Core*: Tiếp nhận dữ liệu MQTT từ 5 trạm, mở rộng lên 15.  
-- *AWS Lambda*: Xử lý dữ liệu và kích hoạt Glue jobs (2 hàm).  
-- *Amazon API Gateway*: Giao tiếp với ứng dụng web.  
-- *Amazon S3*: Lưu trữ dữ liệu thô (data lake) và dữ liệu đã xử lý (2 bucket).  
-- *AWS Glue*: Crawlers lập chỉ mục dữ liệu, ETL jobs chuyển đổi và tải dữ liệu.  
-- *AWS Amplify*: Lưu trữ giao diện web Next.js.  
-- *Amazon Cognito*: Quản lý quyền truy cập cho người dùng phòng lab.  
+_Giải pháp_
 
-*Thiết kế thành phần*  
-- *Thiết bị biên*: Raspberry Pi thu thập và lọc dữ liệu cảm biến, gửi tới IoT Core.  
-- *Tiếp nhận dữ liệu*: AWS IoT Core nhận tin nhắn MQTT từ thiết bị biên.  
-- *Lưu trữ dữ liệu*: Dữ liệu thô lưu trong S3 data lake; dữ liệu đã xử lý lưu ở một S3 bucket khác.  
-- *Xử lý dữ liệu*: AWS Glue Crawlers lập chỉ mục dữ liệu; ETL jobs chuyển đổi để phân tích.  
-- *Giao diện web*: AWS Amplify lưu trữ ứng dụng Next.js cho bảng điều khiển và phân tích thời gian thực.  
-- *Quản lý người dùng*: Amazon Cognito giới hạn 5 tài khoản hoạt động.  
+  * Xây dựng hệ thống AWS Student Management Portal chuyển đổi hoàn toàn sang kiến trúc hiện đại: Tách biệt hệ thống thành cấu trúc Modular với các dịch vụ Microservices độc lập kết hợp mô hình không máy chủ Serverless (AWS Lambda, DynamoDB, API Gateway).
+  * Áp dụng kiến trúc hướng sự kiện (Event-Driven Architecture) sử dụng Amazon SQS để xử lý các tác vụ bất đồng bộ và giao tiếp linh hoạt giữa các dịch vụ.
+  * Bảo mật đa lớp từ tầng mạng (WAF, CloudFront), tầng định danh (Cognito) cho đến tầng dữ liệu (AWS KMS, IAM Role).
+  * Tự động hóa hoàn toàn chu kỳ phát triển phần mềm (SDLC) bằng đường ống CI/CD tự động (CodeCommit → CodePipeline → CodeBuild).
 
-### 4. Triển khai kỹ thuật  
-*Các giai đoạn triển khai*  
-Dự án gồm 2 phần — thiết lập trạm thời tiết biên và xây dựng nền tảng thời tiết — mỗi phần trải qua 4 giai đoạn:  
-1. *Nghiên cứu và vẽ kiến trúc*: Nghiên cứu Raspberry Pi với cảm biến ESP32 và thiết kế kiến trúc AWS Serverless (1 tháng trước kỳ thực tập).  
-2. *Tính toán chi phí và kiểm tra tính khả thi*: Sử dụng AWS Pricing Calculator để ước tính và điều chỉnh (Tháng 1).  
-3. *Điều chỉnh kiến trúc để tối ưu chi phí/giải pháp*: Tinh chỉnh (ví dụ tối ưu Lambda với Next.js) để đảm bảo hiệu quả (Tháng 2).  
-4. *Phát triển, kiểm thử, triển khai*: Lập trình Raspberry Pi, AWS services với CDK/SDK và ứng dụng Next.js, sau đó kiểm thử và đưa vào vận hành (Tháng 2–3).  
 
-*Yêu cầu kỹ thuật*  
-- *Trạm thời tiết biên*: Cảm biến (nhiệt độ, độ ẩm, lượng mưa, tốc độ gió), vi điều khiển ESP32, Raspberry Pi làm thiết bị biên. Raspberry Pi chạy Raspbian, sử dụng Docker để lọc dữ liệu và gửi 1 MB/ngày/trạm qua MQTT qua Wi-Fi.  
-- *Nền tảng thời tiết*: Kiến thức thực tế về AWS Amplify (lưu trữ Next.js), Lambda (giảm thiểu do Next.js xử lý), AWS Glue (ETL), S3 (2 bucket), IoT Core (gateway và rules), và Cognito (5 người dùng). Sử dụng AWS CDK/SDK để lập trình (ví dụ IoT Core rules tới S3). Next.js giúp giảm tải Lambda cho ứng dụng web fullstack.  
 
-### 5. Lộ trình & Mốc triển khai  
-- *Trước thực tập (Tháng 0)*: 1 tháng lên kế hoạch và đánh giá trạm cũ.  
-- *Thực tập (Tháng 1–3)*:  
-    - Tháng 1: Học AWS và nâng cấp phần cứng.  
-    - Tháng 2: Thiết kế và điều chỉnh kiến trúc.  
-    - Tháng 3: Triển khai, kiểm thử, đưa vào sử dụng.  
-- *Sau triển khai*: Nghiên cứu thêm trong vòng 1 năm.  
+_Lợi ích và hoàn vốn đầu tư (ROI)_
 
-### 6. Ước tính ngân sách  
-Có thể xem chi phí trên [AWS Pricing Calculator](https://calculator.aws/#/estimate?id=621f38b12a1ef026842ba2ddfe46ff936ed4ab01)  
-Hoặc tải [tệp ước tính ngân sách](../attachments/budget_estimation.pdf).  
+  * Tối ưu hiệu năng và chi phí (Cost & Performance Efficiency): Cơ chế Serverless loại bỏ hoàn toàn việc quản lý hạ tầng phần cứng. Hệ thống tự động mở rộng (Auto-scaling) ngay lập tức khi lượng truy cập tăng và áp dụng mô hình thanh toán theo giá trị thực tế (Pay-for-value) – chỉ tính tiền khi mã nguồn chạy.
 
-*Chi phí hạ tầng*  
-- AWS Lambda: 0,00 USD/tháng (1.000 request, 512 MB lưu trữ).  
-- S3 Standard: 0,15 USD/tháng (6 GB, 2.100 request, 1 GB quét).  
-- Truyền dữ liệu: 0,02 USD/tháng (1 GB vào, 1 GB ra).  
-- AWS Amplify: 0,35 USD/tháng (256 MB, request 500 ms).  
-- Amazon API Gateway: 0,01 USD/tháng (2.000 request).  
-- AWS Glue ETL Jobs: 0,02 USD/tháng (2 DPU).  
-- AWS Glue Crawlers: 0,07 USD/tháng (1 crawler).  
-- MQTT (IoT Core): 0,08 USD/tháng (5 thiết bị, 45.000 tin nhắn).  
+  * Tính linh hoạt và khả năng chống chịu lỗi (Resilience & Agility): Nhờ cơ chế giao tiếp bất đồng bộ qua Queue, hệ thống có tính Loose-coupling cao, giúp giảm tải cho backend và đảm bảo hệ thống không bị sập khi quá tải cục bộ.
 
-*Tổng*: 0,7 USD/tháng, 8,40 USD/12 tháng  
-- *Phần cứng*: 265 USD một lần (Raspberry Pi 5 và cảm biến).  
+  * An toàn thông tin tuyệt đối: Giảm thiểu rủi ro rò rỉ dữ liệu nhờ cơ chế mã hóa lưu trữ tự động, phân quyền tối thiểu (IAM Role) và thiết lập chính sách sao lưu/khôi phục định kỳ (AWS Backup).
 
-### 7. Đánh giá rủi ro  
-*Ma trận rủi ro*  
-- Mất mạng: Ảnh hưởng trung bình, xác suất trung bình.  
-- Hỏng cảm biến: Ảnh hưởng cao, xác suất thấp.  
-- Vượt ngân sách: Ảnh hưởng trung bình, xác suất thấp.  
+  * Tăng tốc độ phát triển sản phẩm: Quy trình CI/CD tự động hóa việc build và deploy giúp giảm thiểu sai sót thủ công, rút ngắn thời gian phát hành phiên bản mới.
 
-*Chiến lược giảm thiểu*  
-- Mạng: Lưu trữ cục bộ trên Raspberry Pi với Docker.  
-- Cảm biến: Kiểm tra định kỳ, dự phòng linh kiện.  
-- Chi phí: Cảnh báo ngân sách AWS, tối ưu dịch vụ.  
 
-*Kế hoạch dự phòng*  
-- Quay lại thu thập thủ công nếu AWS gặp sự cố.  
-- Sử dụng CloudFormation để khôi phục cấu hình liên quan đến chi phí.  
 
-### 8. Kết quả kỳ vọng  
-*Cải tiến kỹ thuật*: Dữ liệu và phân tích thời gian thực thay thế quy trình thủ công. Có thể mở rộng tới 10–15 trạm.  
-*Giá trị dài hạn*: Nền tảng dữ liệu 1 năm cho nghiên cứu AI, có thể tái sử dụng cho các dự án tương lai.
+
+### 3. Kiến trúc giải pháp
+
+  * Hệ thống AWS Student Management Portal được xây dựng dựa trên kiến trúc Điện toán đám mây hiện đại (Cloud-Native Architecture), kết hợp chặt chẽ giữa mô hình Không máy chủ (Serverless) và cơ chế Hướng sự kiện (Event-Driven). Toàn bộ kiến trúc được phân tách thành các phân lớp chức năng độc lập, đảm bảo khả năng tự động mở rộng, tối ưu chi phí và bảo mật đa tầng.
+
+
+
+![AWS Student Management Portal](/images/2-Proposal/aws.jpg)
+
+_Dịch vụ AWS sử dụng_
+
+  *  _Amazon Route 53:́́́́_ Dịch vụ quản lý và phân giải tên miền (DNS).
+  * _Amazon CloudFront:_ Mạng lưới phân phối nội dung toàn cầu (CDN) giúp tăng tốc độ tải trang giao diện và lưu bộ nhớ đệm .
+  * _AWS WAF:_ Tường lửa bảo vệ ứng dụng web trước các cuộc tấn công mạng độc hại.
+  * _Amazon S3:_ Lưu trữ mã nguồn tĩnh frontend (Website hosting) và lưu trữ dữ liệu hồ sơ tải lên của sinh viên.
+  * _Amazon Cognito:_ Dịch vụ quản lý định danh, xử lý xác thực đăng ký/đăng nhập và cấp mã bảo mật JWT Token cho người dùng.
+  * _Amazon API Gateway:_ Cửa ngõ tiếp nhận, điều phối, định tuyến các yêu cầu API và thực hiện rate limiting.
+  * _AWS Lambda:_ Dịch vụ tính toán Serverless (FaaS), trực tiếp thực thi mã nguồn xử lý logic backend một cách tự động theo sự kiện.
+  * _Amazon DynamoDB:_ Cơ sở dữ liệu NoSQL tốc độ cao, độ trễ mili-giây, lưu trữ thông tin chi tiết của sinh viên.
+  * _Amazon SQS:_ Hàng đợi thông điệp, hỗ trợ tiếp nhận và xử lý các tác vụ bất đồng bộ.
+  * _Amazon SES:_ Dịch vụ gửi email tự động (gửi thông báo đến sinh viên/quản trị viên).
+  * _Amazon CloudWatch:_ Công cụ giám sát hiệu năng hệ thống, thu thập log, metrics và thiết lập cảnh báo tự động (Alarm).
+  * _Amazon SNS:_ Dịch vụ thông báo dạng Publish/Subscribe, dùng để gửi tin nhắn cảnh báo hệ thống đến đội ngũ quản trị.
+  * _AWS KMS:_ Quản lý và khởi tạo khóa mã hóa dữ liệu lưu trữ tại chỗ.
+  * _AWS Backup:_ Dịch vụ tập trung quản lý tự động việc sao lưu và khôi phục dữ liệu định kỳ theo chính sách.
+  * _AWS CodeCommit:_ Kho lưu trữ mã nguồn bảo mật dựa trên Git.
+  * _AWS CodeBuild:_ Dịch vụ biên dịch mã nguồn, chạy kiểm thử và đóng gói sản phẩm tự động.
+  * _AWS CodePipeline:_ Dịch vụ điều phối chuỗi quy trình triển khai tự động liên tục (CI/CD).
+
+
+
+_Thiết kế thành phần_
+
+  *  _Amazon Route 53:_ Cấu hình A Record (Alias) trỏ tên miền về CloudFront.
+
+  * _Amazon CloudFront:_ Tạo Distribution, cấu hình HTTPS và chính sách Cache tối ưu cho file tĩnh.
+
+  * _AWS WAF:_ Gắn Web ACL vào CloudFront, bật các bộ quy tắc chống SQL Injection, XSS và giới hạn tần suất gọi API (Rate-limiting).
+
+  * _Amazon S3 (Frontend):_ Bật Static Website Hosting, cấu hình OAC (Origin Access Control) chỉ cho phép CloudFront truy cập, chặn hoàn toàn truy cập công khai.
+
+  * _Amazon S3 (Data Storage):_ Bật Versioning quản lý phiên bản, cấu hình CORS để tải tệp lên an toàn bằng Presigned URL.
+
+  * _Amazon Cognito:_ Khởi tạo User Pool quản lý tài khoản sinh viên và cấp mã bảo mật JWT Token.
+
+  * _Amazon API Gateway:_ Thiết lập các Endpoint dạng REST API, tích hợp Cognito Authorizer để chặn/cho phép request.
+
+  * _AWS Lambda:_ Chạy code backend (Node.js/Python), tự động co giãn hiệu năng theo lượng event kích hoạt.
+
+  * _Amazon DynamoDB:_ Cơ sở dữ liệu cấu hình chế độ On-Demand (tự động mở rộng sức chứa), đặt Khóa chính là StudentID.
+
+  * _Amazon SQS & SES:_ Cấu hình hàng đợi Standard/FIFO xử lý bất đồng bộ và gọi API SES gửi email tự động đã xác thực cấu hình DKIM/SPF.
+
+  * _CloudWatch & SNS:_ Tạo các Metric Filters lọc lỗi hệ thống, cấu hình Alarm gửi tin nhắn cảnh báo tức thời qua SNS Topic.
+
+  * _AWS KMS & Backup:_ Mã hóa dữ liệu lưu trữ tự động (Data-at-rest) và đặt chính sách sao lưu định kỳ, sẵn sàng khôi phục thảm họa.
+
+  * _CI/CD (Code Suite):_ Tự động hóa quy trình build và deploy liên tục .
+
+
+
+
+### 4. Triển khai kỹ thuật
+
+ _Yêu cầu kỹ thuật_
+
+  *  _Compute & Logic Layer:_ AWS Lambda (chạy backend xử lý bất đồng bộ và logic quản lý), Amazon API Gateway.
+
+  * _Storage & Database:_ Amazon DynamoDB (Cơ sở dữ liệu lưu trữ thông tin sinh viên), Amazon S3 (Lưu trữ frontend tĩnh và tệp tài liệu sinh viên).
+
+  * _Security & Identity:_ Amazon Cognito, IAM Roles, AWS KMS (Mã hóa khóa bảo mật).
+
+  * _Observability:_ Amazon CloudWatch (Log & Metrics), CloudWatch Alarms, Amazon SNS (Hệ thống điều phối cảnh báo).
+
+  * _Data Protection & Resiliency:_ AWS Backup (Chính sách sao lưu và khôi phục thảm họa định kỳ).
+
+  * _CI/CD Automation:_ AWS CodeCommit (Quản lý mã nguồn), AWS CodeBuild (Đóng gói/Kiểm thử), AWS CodePipeline (Tự động hóa deploy liên tục).
+
+
+
+
+### 5. Lộ trình & Mốc triển khai
+
+  *  _Giai đoạn 1:_ Thiết lập hạ tầng và Cấu hình bảo mật dữ liệu
+
+
+
+Triển khai các dịch vụ cốt lõi và thiết lập cơ chế an toàn thông tin đa lớp.
+
+Sử dụng AWS KMS để thực hiện mã hóa toàn bộ dữ liệu tại chỗ (Data-at-rest) lưu trữ trên Amazon DynamoDB và Amazon S3.
+
+Thiết lập hệ thống IAM Role nghiêm ngặt theo nguyên tắc đặc quyền tối thiểu (Least Privilege), đảm bảo mỗi dịch vụ chỉ có quyền truy cập vừa đủ vào tài nguyên cần thiết.
+
+  * _Giai đoạn 2:_ Cấu hình hệ thống giám sát và Vận hành
+
+
+
+Tích hợp Amazon CloudWatch để thu thập tập trung dữ liệu log, chỉ số hiệu năng (metrics) từ AWS Lambda và API Gateway.
+
+Thiết lập các CloudWatch Alarms theo dõi ngưỡng lỗi (như lỗi Lambda crash hoặc API Gateway quá tải).
+
+Kết nối hệ thống báo động với Amazon SNS để tự động gửi cảnh báo tức thời tới đội ngũ kỹ sư quản trị ngay khi phát hiện dấu hiệu bất thường.
+
+  * _Giai đoạn 3:_ Tự động hóa đường ống triển khai (CI/CD Pipeline)
+
+
+
+Thiết lập kho lưu trữ mã nguồn an toàn dựa trên Git thông qua AWS CodeCommit.
+
+Sử dụng AWS CodeBuild để tự động hóa quy trình biên dịch, chạy các bài kiểm thử và đóng gói sản phẩm.
+
+Cấu hình luồng điều phối liên tục AWS CodePipeline giúp tự động cập nhật Frontend lên Amazon S3 và triển khai Backend lên AWS Lambda mỗi khi có cập nhật mã nguồn mới.
+
+  * _Giai đoạn 4:_ Thiết lập cơ chế dự phòng và Sao lưu định kỳ
+
+
+
+Cấu hình dịch vụ AWS Backup tập trung để quản lý toàn diện các bản sao lưu dữ liệu cho DynamoDB và S3.
+
+Cài đặt chính sách lưu trữ và khôi phục định kỳ, sẵn sàng ứng phó trong các tình huống khẩn cấp hoặc sự cố thảm họa dữ liệu.
+
+### 6. Ước tính ngân sách
+
+ _Chi phí hạ tầng_
+
+Dịch vụ AWS| Mức chi phí ước tính/tháng  
+---|---  
+Amazon S3 (frontend + tài liệu)| $3–$8  
+Amazon CloudFront| $5–$15  
+Amazon API Gateway| $3–$8  
+AWS Lambda| $2–$10  
+Amazon DynamoDB| $10–$25  
+Amazon Cognito| $0–$10  
+Amazon SQS| $0–$2  
+Amazon SES| $0–$10  
+Amazon CloudWatch Logs| $2–$8  
+  
+**Tổng ước tính:** khoảng $25–$96/tháng, tùy mức truy cập, dung lượng lưu trữ và số lượng email gửi.
+
+### 7. Đánh giá rủi ro
+
+Dưới đây là các rủi ro chính khi triển khai và vận hành hệ thống AWS Student Management Portal:
+
+Loại rủi ro| Mô tả| Mức độ| Biện pháp giảm thiểu  
+---|---|---|---  
+Bảo mật| Token Cognito, IAM role hoặc cấu hình S3 có thể bị khai thác nếu không kiểm soát đúng| Cao| Dùng Cognito Authorizer, giới hạn quyền IAM, khóa public access cho bucket, bật CloudFront và bảo mật biến môi trường  
+Dữ liệu| Dữ liệu sinh viên và hồ sơ có thể bị mất hoặc không nhất quán nếu schema thay đổi hoặc lỗi xử lý| Trung bình| Backup DynamoDB, validate dữ liệu đầu vào, dùng logging và retry logic  
+Triển khai| Cấu hình API Gateway, Lambda, Cognito và S3 có thể sai dẫn đến hệ thống không chạy được| Trung bình| Kiểm thử từng thành phần, dùng môi trường dev/test trước khi deploy production  
+Chi phí vận hành| Số lượng request Lambda, DynamoDB read/write và lưu trữ file có thể làm chi phí tăng nhanh| Trung bình| Tối ưu Lambda, dùng DynamoDB on-demand, giới hạn log và file lưu trữ  
+Vận hành| Lambda cold start, lỗi timeout, SQS/SES không hoạt động đúng có thể ảnh hưởng trải nghiệm người dùng| Trung bình| Cấu hình timeout hợp lý, theo dõi CloudWatch, thiết lập alert và retry  
+Hạn chế email| SES ở chế độ sandbox có thể giới hạn người nhận và gây lỗi gửi email| Trung bình| Verify sender/recipient trước khi dùng, kiểm tra cấu hình SES và queue worker  
+  
+### 8. Kết quả kỳ vọng
+
+Dự án này được kỳ vọng mang lại các giá trị chính sau:
+
+  * Hiểu rõ cách xây dựng một ứng dụng web theo mô hình serverless trên AWS.
+  * Thực hành kết nối các dịch vụ AWS như S3, CloudFront, Cognito, API Gateway, Lambda, DynamoDB, SQS, SES và CloudWatch.
+  * Tạo được một nền tảng quản lý sinh viên có thể mở rộng cho các hệ thống thực tế về sau.
+  * Hỗ trợ việc học tập, demo và báo cáo triển khai cloud một cách trực quan và có cấu trúc.
+  * Tạo tiền đề cho các dự án nâng cao như phân quyền chi tiết, dashboard thống kê, CI/CD hoặc triển khai production.
+
+
+
+Kỳ vọng thực tế của dự án là không chỉ dừng ở giao diện demo, mà còn thể hiện được cách thiết kế kiến trúc, xử lý dữ liệu, bảo mật và vận hành hệ thống trên nền tảng cloud.

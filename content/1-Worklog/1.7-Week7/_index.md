@@ -1,57 +1,44 @@
 ---
 title: "Week 7 Worklog"
-date: 2024-01-01
+date: 2026
 weight: 1
 chapter: false
 pre: " <b> 1.7. </b> "
 ---
-{{% notice warning %}} 
-⚠️ **Note:** The following information is for reference purposes only. Please **do not copy verbatim** for your own report, including this warning.
-{{% /notice %}}
 
 
 ### Week 7 Objectives:
 
-* Connect and get acquainted with members of First Cloud AI Journey.
-* Understand basic AWS services, how to use the console & CLI.
-
+* Automate infrastructure creation with CloudFormation.
+* Analyze cost and usage data with S3, Glue, and Athena.
+* Compare Savings Plans, Reserved Instances, and Reserved DB Instances.
+* Deploy managed Windows file storage with Amazon FSx integrated with Active Directory.
+* Protect a web application with AWS WAF in front of an ALB.
 ### Tasks to be carried out this week:
 | Day | Task                                                                                                                                                                                                   | Start Date | Completion Date | Reference Material                        |
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------- | --------------- | ----------------------------------------- |
-| 2   | - Get acquainted with FCAJ members <br> - Read and take note of internship unit rules and regulations                                                                                                   | 08/11/2025 | 08/11/2025      |
-| 3   | - Learn about AWS and its types of services <br>&emsp; + Compute <br>&emsp; + Storage <br>&emsp; + Networking <br>&emsp; + Database <br>&emsp; + ... <br>                                              | 08/12/2025 | 08/12/2025      | <https://cloudjourney.awsstudygroup.com/> |
-| 4   | - Create AWS Free Tier account <br> - Learn about AWS Console & AWS CLI <br> - **Practice:** <br>&emsp; + Create AWS account <br>&emsp; + Install & configure AWS CLI <br> &emsp; + How to use AWS CLI | 08/13/2025 | 08/13/2025      | <https://cloudjourney.awsstudygroup.com/> |
-| 5   | - Learn basic EC2: <br>&emsp; + Instance types <br>&emsp; + AMI <br>&emsp; + EBS <br>&emsp; + ... <br> - SSH connection methods to EC2 <br> - Learn about Elastic IP   <br>                            | 08/14/2025 | 08/15/2025      | <https://cloudjourney.awsstudygroup.com/> |
-| 6   | - **Practice:** <br>&emsp; + Launch an EC2 instance <br>&emsp; + Connect via SSH <br>&emsp; + Attach an EBS volume                                                                                     | 08/15/2025 | 08/15/2025      | <https://cloudjourney.awsstudygroup.com/> |
+| 1   | - Automate web app and RDS infrastructure with CloudFormation. <br> - Create VPC, public subnets, IGW, route tables, EC2, RDS, security groups, and deployment scripts from one template.                                                                                                   | 13/05/2026 | 13/05/2026      | <https://000037.awsstudygroup.com/> |
+| 2   | - Analyze cost and performance with AWS Glue and Athena.<br> - &Create S3 data/query buckets, Glue crawler/catalog, and Athena SQL queries for CUR-style cost analysis.<br>                                              | 14/05/2026 | 14/05/2026      | <https://000040.awsstudygroup.com/> |
+| 3   | - Study Savings Plans, RI, and Reserved DB Instances.<br> - Compare commitment scope, payment options, discount trade-offs, utilization risk, and recommendation reading. | 15/05/2026 | 15/05/2026      | <https://000042.awsstudygroup.com/> |
+| 4   | - Deploy Amazon FSx for Windows File Server.<br> - Integrate FSx with Microsoft Active Directory, test SMB access from Linux EC2 with cifs-utils/samba-client, and verify cross-node file sync.<br>                            | 16/05/2026 | 16/05/2026      | <https://000025.awsstudygroup.com/> |
+| 5   | - Protect web application with AWS WAF. <br> - Place WAF before ALB, connect ALB to EC2 app and RDS database, then review traffic filtering and application protection flow.                                        | 17/05/2026 | 17/05/2026      | <https://000026.awsstudygroup.com/> |
 
 
 ### Week 7 Achievements:
 
-* Understood what AWS is and mastered the basic service groups: 
-  * Compute
-  * Storage
-  * Networking 
-  * Database
-  * ...
+* Overview:
 
-* Successfully created and configured an AWS Free Tier account.
+During this week, I focused on infrastructure as code, cost analytics, commitment models, fsx, and waf. The work was organized from my daily learning notes and adjusted into a weekly internship-report format.
 
-* Became familiar with the AWS Management Console and learned how to find, access, and use services via the web interface.
+* Learned theory:
 
-* Installed and configured AWS CLI on the computer, including:
-  * Access Key
-  * Secret Key
-  * Default Region
-  * ...
+- Automate infrastructure creation with CloudFormation.
+- Analyze cost and usage data with S3, Glue, and Athena.
+- Compare Savings Plans, Reserved Instances, and Reserved DB Instances.
+- Deploy managed Windows file storage with Amazon FSx integrated with Active Directory.
+- Protect a web application with AWS WAF in front of an ALB.
+* Hands-on labs:
 
-* Used AWS CLI to perform basic operations such as:
-
-  * Check account & configuration information
-  * Retrieve the list of regions
-  * View EC2 service
-  * Create and manage key pairs
-  * Check information about running services
-  * ...
-
-* Acquired the ability to connect between the web interface and CLI to manage AWS resources in parallel.
-* ...
+- Moved from manual infrastructure operations toward repeatable CloudFormation templates.
+- Understood how cost data can be stored, cataloged, and queried serverlessly.
+- Practiced managed file storage and web application protection patterns.

@@ -1,59 +1,45 @@
 ---
 title: "Worklog Tuần 3"
-date: 2024-01-01
+date: 2026
 weight: 1
 chapter: false
 pre: " <b> 1.3. </b> "
 ---
-{{% notice warning %}}
-⚠️ **Lưu ý:** Các thông tin dưới đây chỉ nhằm mục đích tham khảo, vui lòng **không sao chép nguyên văn** cho bài báo cáo của bạn kể cả warning này.
-{{% /notice %}}
 
 
 ### Mục tiêu tuần 3:
 
-* Kết nối, làm quen với các thành viên trong First Cloud AI Journey.
-* Hiểu dịch vụ AWS cơ bản, cách dùng console & CLI.
+* Thiết lập chốt chặn tài chính để tránh phát sinh chi phí AWS ngoài ý muốn.
+* Phân biệt Cost Budget, Usage Budget, RI Budget và Savings Plans Budget.
+* Xây dựng kỹ năng quan sát hệ thống với CloudWatch metrics, logs, alarms, dashboards và SNS.
+* Thực hành đọc metrics bằng search expression, metric math và dashboard widget.
 
 ### Các công việc cần triển khai trong tuần này:
 | Thứ | Công việc                                                                                                                                                                                   | Ngày bắt đầu | Ngày hoàn thành | Nguồn tài liệu                            |
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ | --------------- | ----------------------------------------- |
-| 2   | - Làm quen với các thành viên FCAJ <br> - Đọc và lưu ý các nội quy, quy định tại đơn vị thực tập                                                                                             | 11/08/2025   | 11/08/2025      |
-| 3   | - Tìm hiểu AWS và các loại dịch vụ <br>&emsp; + Compute <br>&emsp; + Storage <br>&emsp; + Networking <br>&emsp; + Database <br>&emsp; + ... <br>                                            | 12/08/2025   | 12/08/2025      | <https://cloudjourney.awsstudygroup.com/> |
-| 4   | - Tạo AWS Free Tier account <br> - Tìm hiểu AWS Console & AWS CLI <br> - **Thực hành:** <br>&emsp; + Tạo AWS account <br>&emsp; + Cài AWS CLI & cấu hình <br> &emsp; + Cách sử dụng AWS CLI | 13/08/2025   | 13/08/2025      | <https://cloudjourney.awsstudygroup.com/> |
-| 5   | - Tìm hiểu EC2 cơ bản: <br>&emsp; + Instance types <br>&emsp; + AMI <br>&emsp; + EBS <br>&emsp; + ... <br> - Các cách remote SSH vào EC2 <br> - Tìm hiểu Elastic IP   <br>                  | 14/08/2025   | 15/08/2025      | <https://cloudjourney.awsstudygroup.com/> |
-| 6   | - **Thực hành:** <br>&emsp; + Tạo EC2 instance <br>&emsp; + Kết nối SSH <br>&emsp; + Gắn EBS volume                                                                                         | 15/08/2025   | 15/08/2025      | <https://cloudjourney.awsstudygroup.com/> |
+| 1   | - Tạo AWS Cost Budget. <br> - Cấu hình theo dõi unblended cost cho toàn bộ dịch vụ và cảnh báo nhiều mức 50%, 80%, 100%.                                              | 29/04/2026 | 29/04/2026      | <https://000007.awsstudygroup.com/> |
+| 2   | - Tạo AWS Usage Budget.<br> - Theo dõi EC2 running hours để bảo vệ Free Tier và hiểu rủi ro chi phí ngầm khi quên xóa tài nguyên.<br>                                              | 30/04/2026 | 30/04/2026      | <https://000007.awsstudygroup.com/> |
+| 3   | - Tìm hiểu RI Budget và Savings Plans Budget.<br> - So sánh giám sát mức sử dụng reservation với giám sát cam kết compute trong quản trị chi phí doanh nghiệp. | 31/04/2026 | 31/04/2026      | <https://0000042.awsstudygroup.com/> |
+| 4   | - Bắt đầu Amazon CloudWatch Workshop. <br> - Triển khai hạ tầng EC2 bằng CloudFormation và nhận diện lỗi region/vCPU quota khi tạo stack.<br>                            | 01/05/2026 | 01/05/2026      | <https://000008.awsstudygroup.com/> <https://0000036.awsstudygroup.com/>  |
+
 
 
 ### Kết quả đạt được tuần 3:
 
-* Hiểu AWS là gì và nắm được các nhóm dịch vụ cơ bản: 
-  * Compute
-  * Storage
-  * Networking 
-  * Database
-  * ...
+* Tổng quan:
 
-* Đã tạo và cấu hình AWS Free Tier account thành công.
+Trong tuần này, tôi tập trung vào chủ đề chốt chặn chi phí và nền tảng quan sát hệ thống. Nội dung được tổng hợp từ worklog theo ngày và biên tập lại thành định dạng báo cáo theo tuần.
 
-* Làm quen với AWS Management Console và biết cách tìm, truy cập, sử dụng dịch vụ từ giao diện web.
+* Kiến thức đã học:
 
-* Cài đặt và cấu hình AWS CLI trên máy tính bao gồm:
-  * Access Key
-  * Secret Key
-  * Region mặc định
-  * ...
+- Thiết lập chốt chặn tài chính để tránh phát sinh chi phí AWS ngoài ý muốn.
+- Phân biệt Cost Budget, Usage Budget, RI Budget và Savings Plans Budget.
+- Xây dựng kỹ năng quan sát hệ thống với CloudWatch metrics, logs, alarms, dashboards và SNS.
+- Thực hành đọc metrics bằng search expression, metric math và dashboard widget.
+Thực hành:
 
-* Sử dụng AWS CLI để thực hiện các thao tác cơ bản như:
-
-  * Kiểm tra thông tin tài khoản & cấu hình
-  * Lấy danh sách region
-  * Xem dịch vụ EC2
-  * Tạo và quản lý key pair
-  * Kiểm tra thông tin dịch vụ đang chạy
-  * ...
-
-* Có khả năng kết nối giữa giao diện web và CLI để quản lý tài nguyên AWS song song.
-* ...
+- Cấu hình được cảnh báo ngân sách theo cả góc nhìn chi phí và mức sử dụng.
+Hiểu vì sao cần tạo financial guardrails trước khi thực hành nhiều lab.
+- Bắt đầu làm việc với CloudWatch metrics và biết cách xử lý giới hạn khi triển khai hạ tầng.
 
 

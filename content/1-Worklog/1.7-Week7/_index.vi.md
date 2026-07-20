@@ -1,59 +1,48 @@
 ---
 title: "Worklog Tuần 7"
-date: 2024-01-01
+date: 2026
 weight: 1
 chapter: false
 pre: " <b> 1.7. </b> "
 ---
-{{% notice warning %}}
-⚠️ **Lưu ý:** Các thông tin dưới đây chỉ nhằm mục đích tham khảo, vui lòng **không sao chép nguyên văn** cho bài báo cáo của bạn kể cả warning này.
-{{% /notice %}}
 
 
 ### Mục tiêu tuần 7:
 
-* Kết nối, làm quen với các thành viên trong First Cloud AI Journey.
-* Hiểu dịch vụ AWS cơ bản, cách dùng console & CLI.
+* Tự động hóa khởi tạo hạ tầng bằng CloudFormation.
+* Phân tích dữ liệu chi phí và mức sử dụng bằng S3, Glue và Athena.
+* So sánh Savings Plans, Reserved Instances và Reserved DB Instances.
+* Triển khai lưu trữ file Windows được quản lý bằng Amazon FSx tích hợp Active Directory.
+* Bảo vệ ứng dụng web bằng AWS WAF phía trước ALB.
 
 ### Các công việc cần triển khai trong tuần này:
 | Thứ | Công việc                                                                                                                                                                                   | Ngày bắt đầu | Ngày hoàn thành | Nguồn tài liệu                            |
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ | --------------- | ----------------------------------------- |
-| 2   | - Làm quen với các thành viên FCAJ <br> - Đọc và lưu ý các nội quy, quy định tại đơn vị thực tập                                                                                             | 11/08/2025   | 11/08/2025      |
-| 3   | - Tìm hiểu AWS và các loại dịch vụ <br>&emsp; + Compute <br>&emsp; + Storage <br>&emsp; + Networking <br>&emsp; + Database <br>&emsp; + ... <br>                                            | 12/08/2025   | 12/08/2025      | <https://cloudjourney.awsstudygroup.com/> |
-| 4   | - Tạo AWS Free Tier account <br> - Tìm hiểu AWS Console & AWS CLI <br> - **Thực hành:** <br>&emsp; + Tạo AWS account <br>&emsp; + Cài AWS CLI & cấu hình <br> &emsp; + Cách sử dụng AWS CLI | 13/08/2025   | 13/08/2025      | <https://cloudjourney.awsstudygroup.com/> |
-| 5   | - Tìm hiểu EC2 cơ bản: <br>&emsp; + Instance types <br>&emsp; + AMI <br>&emsp; + EBS <br>&emsp; + ... <br> - Các cách remote SSH vào EC2 <br> - Tìm hiểu Elastic IP   <br>                  | 14/08/2025   | 15/08/2025      | <https://cloudjourney.awsstudygroup.com/> |
-| 6   | - **Thực hành:** <br>&emsp; + Tạo EC2 instance <br>&emsp; + Kết nối SSH <br>&emsp; + Gắn EBS volume                                                                                         | 15/08/2025   | 15/08/2025      | <https://cloudjourney.awsstudygroup.com/> |
+| 1   | - Tự động hóa hạ tầng web app và RDS bằng CloudFormation. <br> - Tạo VPC, public subnet, IGW, route table, EC2, RDS, security group và script triển khai từ một template.                                                                                                | 13/05/2026 | 13/05/2026      | <https://000037.awsstudygroup.com/> |
+| 2   | - Phân tích chi phí và hiệu năng bằng AWS Glue và Athena.<br> - Tạo S3 data/query bucket, Glue crawler/catalog và truy vấn Athena SQL cho phân tích chi phí kiểu CUR.<br>                                              | 14/05/2026 | 14/05/2026      | <https://000040.awsstudygroup.com/> |
+| 3   | - Học Savings Plans, RI và Reserved DB Instances.<br> - So sánh phạm vi cam kết, hình thức thanh toán, đánh đổi chiết khấu, rủi ro dùng thiếu và cách đọc recommendation. | 15/05/2026 | 15/05/2026      | <https://000042.awsstudygroup.com/> |
+| 4   | - Triển khai Amazon FSx for Windows File Server.<br> - Tích hợp FSx với Microsoft Active Directory, kiểm thử SMB từ Linux EC2 bằng cifs-utils/samba-client và xác minh đồng bộ file giữa các node.<br>                            | 16/05/2026 | 16/05/2026      | <https://000025.awsstudygroup.com/> |
+| 5   | - Bảo vệ web application bằng AWS WAF. <br> - Đặt WAF trước ALB, kết nối ALB tới EC2 app và RDS database, sau đó kiểm tra luồng lọc traffic và bảo vệ ứng dụng.                 | 17/05/2026 | 17/05/2026      | <https://000026.awsstudygroup.com/> |
 
 
 ### Kết quả đạt được tuần 7:
 
-* Hiểu AWS là gì và nắm được các nhóm dịch vụ cơ bản: 
-  * Compute
-  * Storage
-  * Networking 
-  * Database
-  * ...
+* Tổng quan:
 
-* Đã tạo và cấu hình AWS Free Tier account thành công.
+Trong tuần này, tôi tập trung vào chủ đề infrastructure as code, phân tích chi phí, mô hình cam kết, fsx và waf. Nội dung được tổng hợp từ worklog theo ngày và biên tập lại thành định dạng báo cáo theo tuần.
 
-* Làm quen với AWS Management Console và biết cách tìm, truy cập, sử dụng dịch vụ từ giao diện web.
+* Kiến thức đã học:
 
-* Cài đặt và cấu hình AWS CLI trên máy tính bao gồm:
-  * Access Key
-  * Secret Key
-  * Region mặc định
-  * ...
+- Tự động hóa khởi tạo hạ tầng bằng CloudFormation.
+- Phân tích dữ liệu chi phí và mức sử dụng bằng S3, Glue và Athena.
+- So sánh Savings Plans, Reserved Instances và Reserved DB Instances.
+- Triển khai lưu trữ file Windows được quản lý bằng Amazon FSx tích hợp Active Directory.
+- Bảo vệ ứng dụng web bằng AWS WAF phía trước ALB.
+* Thực hành:
 
-* Sử dụng AWS CLI để thực hiện các thao tác cơ bản như:
+- Chuyển từ thao tác hạ tầng thủ công sang template CloudFormation có thể lặp lại.
+- Hiểu cách lưu trữ, catalog và truy vấn dữ liệu chi phí theo mô hình serverless.
+- Thực hành các mẫu triển khai lưu trữ file được quản lý và bảo vệ web application.
 
-  * Kiểm tra thông tin tài khoản & cấu hình
-  * Lấy danh sách region
-  * Xem dịch vụ EC2
-  * Tạo và quản lý key pair
-  * Kiểm tra thông tin dịch vụ đang chạy
-  * ...
-
-* Có khả năng kết nối giữa giao diện web và CLI để quản lý tài nguyên AWS song song.
-* ...
 
 

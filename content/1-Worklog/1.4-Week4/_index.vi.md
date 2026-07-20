@@ -1,59 +1,43 @@
 ---
 title: "Worklog Tuần 4"
-date: 2024-01-01
+date: 2026
 weight: 1
 chapter: false
 pre: " <b> 1.4. </b> "
 ---
-{{% notice warning %}}
-⚠️ **Lưu ý:** Các thông tin dưới đây chỉ nhằm mục đích tham khảo, vui lòng **không sao chép nguyên văn** cho bài báo cáo của bạn kể cả warning này.
-{{% /notice %}}
 
 
 ### Mục tiêu tuần 4:
 
-* Kết nối, làm quen với các thành viên trong First Cloud AI Journey.
-* Hiểu dịch vụ AWS cơ bản, cách dùng console & CLI.
+* Xây dựng phân giải DNS hai chiều giữa môi trường on-premises giả lập và AWS.
+* Sử dụng AWS CLI để quản lý S3, SNS, IAM, VPC và EC2.
+* Thiết kế quy trình backup và restore bằng AWS Backup.
+* Thực hành dọn dẹp tài nguyên theo thứ tự phụ thuộc để kiểm soát chi phí.
 
 ### Các công việc cần triển khai trong tuần này:
 | Thứ | Công việc                                                                                                                                                                                   | Ngày bắt đầu | Ngày hoàn thành | Nguồn tài liệu                            |
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ | --------------- | ----------------------------------------- |
-| 2   | - Làm quen với các thành viên FCAJ <br> - Đọc và lưu ý các nội quy, quy định tại đơn vị thực tập                                                                                             | 11/08/2025   | 11/08/2025      |
-| 3   | - Tìm hiểu AWS và các loại dịch vụ <br>&emsp; + Compute <br>&emsp; + Storage <br>&emsp; + Networking <br>&emsp; + Database <br>&emsp; + ... <br>                                            | 12/08/2025   | 12/08/2025      | <https://cloudjourney.awsstudygroup.com/> |
-| 4   | - Tạo AWS Free Tier account <br> - Tìm hiểu AWS Console & AWS CLI <br> - **Thực hành:** <br>&emsp; + Tạo AWS account <br>&emsp; + Cài AWS CLI & cấu hình <br> &emsp; + Cách sử dụng AWS CLI | 13/08/2025   | 13/08/2025      | <https://cloudjourney.awsstudygroup.com/> |
-| 5   | - Tìm hiểu EC2 cơ bản: <br>&emsp; + Instance types <br>&emsp; + AMI <br>&emsp; + EBS <br>&emsp; + ... <br> - Các cách remote SSH vào EC2 <br> - Tìm hiểu Elastic IP   <br>                  | 14/08/2025   | 15/08/2025      | <https://cloudjourney.awsstudygroup.com/> |
-| 6   | - **Thực hành:** <br>&emsp; + Tạo EC2 instance <br>&emsp; + Kết nối SSH <br>&emsp; + Gắn EBS volume                                                                                         | 15/08/2025   | 15/08/2025      | <https://cloudjourney.awsstudygroup.com/> |
-
+| 1   | - ITriển khai kiến trúc Route 53 Resolver. <br> - Tạo on-premises VPC và AWS VPC giả lập, cấu hình VPC peering, route table, inbound/outbound endpoint và resolver rule.                                                                                                   | 01/05/2026 | 01/05/2026      | <https://000010.awsstudygroup.com/> |
+| 2  | - Thực hành quản lý tài nguyên bằng AWS CLI.<br> -  Cài AWS CLI v2, cấu hình credential, quản lý S3/SNS/IAM và tạo VPC/EC2 bằng dòng lệnh.<br>                                              | 02/05/2026 | 02/05/2026      | <https://000011.awsstudygroup.com/> |
+| 3   | - Tạo AWS Backup plan và backup vault.<br> - Dùng tag để gán EC2 vào backup rule và cấu hình IAM/SNS permission cho thông báo backup. | 02/05/2026 | 03/05/2026      | <https://000013.awsstudygroup.com/> |
+| 4   | - Kiểm thử restore và quy trình cleanup.<br> - Hiểu recovery point, restore không ghi đè, idempotency token và thứ tự dọn dẹp tài nguyên liên quan đến backup.<br>                            | 03/05/2026 | 04/05/2026      | <https://000013.awsstudygroup.com/> |
 
 ### Kết quả đạt được tuần 4:
 
-* Hiểu AWS là gì và nắm được các nhóm dịch vụ cơ bản: 
-  * Compute
-  * Storage
-  * Networking 
-  * Database
-  * ...
+* Tổng quan:
 
-* Đã tạo và cấu hình AWS Free Tier account thành công.
+Trong tuần này, tôi tập trung vào chủ đề dns, tự động hóa cli, backup và khôi phục. Nội dung được tổng hợp từ worklog theo ngày và biên tập lại thành định dạng báo cáo theo tuần.
 
-* Làm quen với AWS Management Console và biết cách tìm, truy cập, sử dụng dịch vụ từ giao diện web.
+* Kiến thức đã học:
 
-* Cài đặt và cấu hình AWS CLI trên máy tính bao gồm:
-  * Access Key
-  * Secret Key
-  * Region mặc định
-  * ...
+- Xây dựng phân giải DNS hai chiều giữa môi trường on-premises giả lập và AWS.
+- Sử dụng AWS CLI để quản lý S3, SNS, IAM, VPC và EC2.
+- Thiết kế quy trình backup và restore bằng AWS Backup.
+- Thực hành dọn dẹp tài nguyên theo thứ tự phụ thuộc để kiểm soát chi phí.
+* Thực hành:
 
-* Sử dụng AWS CLI để thực hiện các thao tác cơ bản như:
-
-  * Kiểm tra thông tin tài khoản & cấu hình
-  * Lấy danh sách region
-  * Xem dịch vụ EC2
-  * Tạo và quản lý key pair
-  * Kiểm tra thông tin dịch vụ đang chạy
-  * ...
-
-* Có khả năng kết nối giữa giao diện web và CLI để quản lý tài nguyên AWS song song.
-* ...
+- Xây dựng được mô hình DNS forwarding thủ công giữa hai mạng hybrid giả lập.
+- Sử dụng AWS CLI để thao tác hạ tầng thay vì chỉ dùng console.
+- Cấu hình backup tự động và hiểu cơ chế restore cho workload EC2.
 
 

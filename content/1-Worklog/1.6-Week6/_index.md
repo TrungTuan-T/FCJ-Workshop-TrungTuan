@@ -1,57 +1,45 @@
 ---
 title: "Week 6 Worklog"
-date: 2024-01-01
+date: 2026
 weight: 1
 chapter: false
 pre: " <b> 1.6. </b> "
 ---
-{{% notice warning %}} 
-⚠️ **Note:** The following information is for reference purposes only. Please **do not copy verbatim** for your own report, including this warning.
-{{% /notice %}}
 
 
 ### Week 6 Objectives:
 
-* Connect and get acquainted with members of First Cloud AI Journey.
-* Understand basic AWS services, how to use the console & CLI.
+* Automate application deployment to EC2 with CodePipeline and CodeDeploy.
+* Restrict EC2 operations with tag-based IAM conditions.
+* Install Grafana and connect it to CloudWatch metrics through IAM Role access.
+* Manage EC2 fleets using Systems Manager and collect memory metrics for right-sizing.
+* Analyze S3 access and encryption behavior with KMS, CloudTrail, and Athena.
 
 ### Tasks to be carried out this week:
 | Day | Task                                                                                                                                                                                                   | Start Date | Completion Date | Reference Material                        |
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------- | --------------- | ----------------------------------------- |
-| 2   | - Get acquainted with FCAJ members <br> - Read and take note of internship unit rules and regulations                                                                                                   | 08/11/2025 | 08/11/2025      |
-| 3   | - Learn about AWS and its types of services <br>&emsp; + Compute <br>&emsp; + Storage <br>&emsp; + Networking <br>&emsp; + Database <br>&emsp; + ... <br>                                              | 08/12/2025 | 08/12/2025      | <https://cloudjourney.awsstudygroup.com/> |
-| 4   | - Create AWS Free Tier account <br> - Learn about AWS Console & AWS CLI <br> - **Practice:** <br>&emsp; + Create AWS account <br>&emsp; + Install & configure AWS CLI <br> &emsp; + How to use AWS CLI | 08/13/2025 | 08/13/2025      | <https://cloudjourney.awsstudygroup.com/> |
-| 5   | - Learn basic EC2: <br>&emsp; + Instance types <br>&emsp; + AMI <br>&emsp; + EBS <br>&emsp; + ... <br> - SSH connection methods to EC2 <br> - Learn about Elastic IP   <br>                            | 08/14/2025 | 08/15/2025      | <https://cloudjourney.awsstudygroup.com/> |
-| 6   | - **Practice:** <br>&emsp; + Launch an EC2 instance <br>&emsp; + Connect via SSH <br>&emsp; + Attach an EBS volume                                                                                     | 08/15/2025 | 08/15/2025      | <https://cloudjourney.awsstudygroup.com/> |
-
+| 1   | - Deploy applications to EC2 with AWS CodePipeline.<br> - Connect GitHub, CodePipeline, S3 artifacts, CodeDeploy, AppSpec hooks, PM2 scripts, and EC2 deployment agent.                                                                                                | 08/05/2026 | 08/05/2026      | <https://000017.awsstudygroup.com/><https://000023.awsstudygroup.com/>   |
+| 2   | - Manage EC2 access with resource tags through IAM. <br> - Create policies that enforce Environment=Test during creation and restrict start/stop/terminate actions to tagged instances.<br>                                              | 09/05/2026 | 09/05/2026      | <https://000028.awsstudygroup.com/> |
+| 3   | - Install Grafana on EC2 and connect CloudWatch.<br> - Create VPC/SG/EC2, open port 3000, attach IAM Role, and visualize CPUUtilization through Grafana. | 10/05/2026 | 10/05/2026      | <https://000029.awsstudygroup.com/> |
+| 4   | - Manage patches and commands with AWS Systems Manager. <br>Attach AmazonSSMManagedInstanceCore, troubleshoot Managed Nodes offline status, and run commands across instances.  <br>                            | 10/05/2026 | 10/05/2026      | <https://000031.awsstudygroup.com/> |
+| 5   | - Choose correct EC2 size using CloudWatch Agent. <br> - Install CloudWatch Agent, collect RAM metrics, and prepare data for Compute Optimizer and Cost Explorer right-sizing analysis.                                                                                    | 11/05/2026 | 11/05/2026      | <https://000032.awsstudygroup.com/> |
+| 6   | - Encrypt at rest with AWS KMS and audit access. <br> - Use CloudTrail data events and Athena SQL to detect access attempts, then validate KMS deny behavior when Decrypt permission is missing.                                                        | 12/05/2026 | 12/05/2026      | <https://000033.awsstudygroup.com/> |
 
 ### Week 6 Achievements:
 
-* Understood what AWS is and mastered the basic service groups: 
-  * Compute
-  * Storage
-  * Networking 
-  * Database
-  * ...
+* Overview:
 
-* Successfully created and configured an AWS Free Tier account.
+During this week, I focused on ci/cd, iam governance, monitoring, systems management, and encryption. The work was organized from my daily learning notes and adjusted into a weekly internship-report format.
 
-* Became familiar with the AWS Management Console and learned how to find, access, and use services via the web interface.
+* Learned theory:
 
-* Installed and configured AWS CLI on the computer, including:
-  * Access Key
-  * Secret Key
-  * Default Region
-  * ...
+- Automate application deployment to EC2 with CodePipeline and CodeDeploy.
+- Restrict EC2 operations with tag-based IAM conditions.
+- Install Grafana and connect it to CloudWatch metrics through IAM Role access.
+- Manage EC2 fleets using Systems Manager and collect memory metrics for right-sizing.
+- Analyze S3 access and encryption behavior with KMS, CloudTrail, and Athena.
+* Hands-on labs:
 
-* Used AWS CLI to perform basic operations such as:
-
-  * Check account & configuration information
-  * Retrieve the list of regions
-  * View EC2 service
-  * Create and manage key pairs
-  * Check information about running services
-  * ...
-
-* Acquired the ability to connect between the web interface and CLI to manage AWS resources in parallel.
-* ...
+- Built a working CI/CD deployment flow and resolved common CodeDeploy/IAM/AppSpec issues.
+- Practiced practical governance using tags, IAM conditions, and encryption controls.
+- Improved operational visibility using Grafana, CloudWatch Agent, and Systems Manager.

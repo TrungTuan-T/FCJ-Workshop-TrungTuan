@@ -1,6 +1,6 @@
 ---
 title : "Kiểm tra Gateway Endpoint"
-date : 2024-01-01 
+date : 2026 
 weight : 2
 chapter : false
 pre : " <b> 5.3.2 </b> "
@@ -32,7 +32,7 @@ pre : " <b> 5.3.2 </b> "
 
 + Trong workshop này, bạn sẽ dùng AWS Session Manager để kết nối đến các EC2 instances. Session Manager là 1 tính năng trong dịch vụ Systems Manager được quản lý hoàn toàn bởi AWS. System manager cho phép bạn quản lý Amazon EC2 instances và các máy ảo on-premises (VMs)thông qua 1 browser-based shell. Session Manager cung cấp khả năng quản lý phiên bản an toàn và có thể kiểm tra mà không cần mở cổng vào, duy trì máy chủ bastion host hoặc quản lý khóa SSH.
 
-+ First Cloud AI Journey [Lab](https://000058.awsstudygroup.com/1-introduce/) để hiểu sâu hơn về Session manager.
++ First cloud journey [Lab](https://000058.awsstudygroup.com/1-introduce/) để hiểu sâu hơn về Session manager.
 
 1. Trong AWS Management Console, gõ Systems Manager trong ô tìm kiếm và nhấn Enter:
 

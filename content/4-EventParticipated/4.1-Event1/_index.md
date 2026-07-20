@@ -1,126 +1,62 @@
 ---
 title: "Event 1"
-date: 2024-01-01
+date: 2026
 weight: 1
 chapter: false
 pre: " <b> 4.1. </b> "
 ---
 
-{{% notice warning %}}
-⚠️ **Note:** The information below is for reference purposes only. Please **do not copy it verbatim** into your report, including this warning.
-{{% /notice %}}
+# Report on “Automated Prompt Engineering: Enhancing LLM Output Quality”
 
-# Summary Report: “GenAI-powered App-DB Modernization workshop”
+### Event Purpose
 
-### Event Objectives
+- Introduce a browser extension that optimizes prompt engineering workflows.
+- Enable users to interact with AI anywhere across the web while automatically optimizing their input commands.
 
-- Share best practices in modern application design
-- Introduce Domain-Driven Design (DDD) and event-driven architecture
-- Provide guidance on selecting the right compute services
-- Present AI tools to support the development lifecycle
+### Speaker List
 
-### Speakers
-
-- **Jignesh Shah** – Director, Open Source Databases
-- **Erica Liu** – Sr. GTM Specialist, AppMod
-- **Fabrianne Effendi** – Assc. Specialist SA, Serverless Amazon Web Services
+- **Nguyen Tuan Thinh** - DevOps/Cloud Engineer 
+- **...**
 
 ### Key Highlights
 
-#### Identifying the drawbacks of legacy application architecture
+#### Prompt Engineering 
 
-- Long product release cycles → Lost revenue/missed opportunities  
-- Inefficient operations → Reduced productivity, higher costs  
-- Non-compliance with security regulations → Security breaches, loss of reputation  
+- **The Problem:** General users often write overly short and vague prompts, leading to inaccurate or hallucinated AI responses, wasted token budget, and decreased productivity.
+- **Structured Solution:** The presentation introduced a standardized formula to optimize a prompt consisting of 7 core components. This shifts the mindset from raw, instinctual AI interactions toward a structured, engineering-based workflow.
 
-#### Transitioning to modern application architecture – Microservices
+#### Advanced AI Reasoning Techniques
 
-Migrating to a modular system — each function is an **independent service** communicating via **events**, built on three core pillars:
+The core academic focus centered on methodologies that stimulate the reasoning capabilities of Large Language Models (LLMs):
 
-- **Queue Management**: Handle asynchronous tasks  
-- **Caching Strategy**: Optimize performance  
-- **Message Handling**: Flexible inter-service communication  
+- **Chain-of-Thought (CoT):** Compels the AI to think and explain its reasoning step-by-step before delivering the final answer, significantly improving accuracy.
+- **Tree-of-Thoughts (ToT):** Allows the AI to explore and evaluate multiple solution paths (like branches of a tree) to self-discover the most optimal outcome.
+- **Token Economics:** Highlights the operational costs within an enterprise context—understanding how tokens are calculated across different languages and the price disparity between input and output tokens to design highly cost-effective prompts.
 
-#### Domain-Driven Design (DDD)
+#### Agile Serverless Architecture - AWS Solution Architecture
 
-- **Four-step method**: Identify domain events → arrange timeline → identify actors → define bounded contexts  
-- **Bookstore case study**: Demonstrates real-world DDD application  
-- **Context mapping**: 7 patterns for integrating bounded contexts  
-
-#### Event-Driven Architecture
-
-- **3 integration patterns**: Publish/Subscribe, Point-to-point, Streaming  
-- **Benefits**: Loose coupling, scalability, resilience  
-- **Sync vs async comparison**: Understanding the trade-offs  
-
-#### Compute Evolution
-
-- **Shared Responsibility Model**: EC2 → ECS → Fargate → Lambda  
-- **Serverless benefits**: No server management, auto-scaling, pay-for-value  
-- **Functions vs Containers**: Criteria for appropriate choice  
-
-#### Amazon Q Developer
-
-- **SDLC automation**: From planning to maintenance  
-- **Code transformation**: Java upgrade, .NET modernization  
-- **AWS Transform agents**: VMware, Mainframe, .NET migration  
+- **Seamless User Experience:** The integration between the Chrome Extension and Amazon Cognito enables automatic synchronization of user login states and secure authentication tokens.
+- **Performance & Cost Optimization:** The entire backend runs on AWS Lambda and Amazon API Gateway. The system operates and incurs costs strictly on-demand based on user requests, maintaining the ability to auto-scale infinitely during traffic spikes without server management overhead.
+- **Direct AI Integration via Amazon Bedrock:** Instead of spending significant time and capital training custom models, the project utilizes Amazon Bedrock to directly invoke world-class foundational LLMs (such as Claude and GPT), ensuring the prompt optimization engine runs smoothly and flexibly.
 
 ### Key Takeaways
 
-#### Design Mindset
+#### Design Thinking
 
-- **Business-first approach**: Always start from the business domain, not the technology  
-- **Ubiquitous language**: Importance of a shared vocabulary between business and tech teams  
-- **Bounded contexts**: Identifying and managing complexity in large systems  
+- **Deep Understanding of Prompts:** Learned that a prompt is not just a basic question, but a well-engineered structure composed of multiple elements (Role, Context, Instruction, Constraints, Few-shot) designed to shape the AI's reasoning framework.
+- **Token Economics Mindset:** Realized that every character sent and received incurs financial costs. Developed an understanding of how to write concise, high-density prompts using clear delimiters to maximize efficiency while conserving system resources.
 
-#### Technical Architecture
+#### Cloud Architecture 
 
-- **Event storming technique**: Practical method for modeling business processes  
-- Use **event-driven communication** instead of synchronous calls  
-- **Integration patterns**: When to use sync, async, pub/sub, streaming  
-- **Compute spectrum**: Criteria for choosing between VM, containers, and serverless  
-
-#### Modernization Strategy
-
-- **Phased approach**: No rushing — follow a clear roadmap  
-- **7Rs framework**: Multiple modernization paths depending on the application  
-- **ROI measurement**: Cost reduction + business agility  
-
-### Applying to Work
-
-- **Apply DDD** to current projects: Event storming sessions with business teams  
-- **Refactor microservices**: Use bounded contexts to define service boundaries  
-- **Implement event-driven patterns**: Replace some sync calls with async messaging  
-- **Adopt serverless**: Pilot AWS Lambda for suitable use cases  
-- **Try Amazon Q Developer**: Integrate into the dev workflow to boost productivity  
+- **The Power of Serverless Architecture:** Understood how to design a modern, auto-scaling system entirely powered by AWS Serverless services like AWS Lambda and API Gateway. This eliminates traditional physical or virtual server management, drastically optimizing operational costs (pay-only-per-request).
+- **Deploying Generative AI in Production:** Gained insights into leveraging Amazon Bedrock to connect securely and rapidly with leading LLMs, ensuring data privacy without requiring heavy up-front hardware investments to retrain models from scratch.
 
 ### Event Experience
 
-Attending the **“GenAI-powered App-DB Modernization”** workshop was extremely valuable, giving me a comprehensive view of modernizing applications and databases using advanced methods and tools. Key experiences included:
+- **Professional Learning Environment:** The event delivered a high-energy tech atmosphere, effectively bridging academic theory with production-grade enterprise applications.
+- **Practical Project Insights:** Listening to first-hand experiences from Mr. Nguyen Tuan Thinh (DevOps/Cloud Engineer) bridged the gap between university knowledge and actual market demands. The open QA environment highly encouraged active discussion and critical thinking.
 
-#### Learning from highly skilled speakers
-- Experts from AWS and major tech organizations shared **best practices** in modern application design.  
-- Through real-world case studies, I gained a deeper understanding of applying **DDD** and **Event-Driven Architecture** to large projects.  
+#### Event Gallery
+* No images available to display.
 
-#### Hands-on technical exposure
-- Participating in **event storming** sessions helped me visualize how to **model business processes** into domain events.  
-- Learned how to **split microservices** and define **bounded contexts** to manage large-system complexity.  
-- Understood trade-offs between **synchronous and asynchronous communication** and integration patterns like **pub/sub, point-to-point, streaming**.  
-
-#### Leveraging modern tools
-- Explored **Amazon Q Developer**, an AI tool for SDLC support from planning to maintenance.  
-- Learned to **automate code transformation** and pilot serverless with **AWS Lambda** to improve productivity.  
-
-#### Networking and discussions
-- The workshop offered opportunities to exchange ideas with experts, peers, and business teams, enhancing the **ubiquitous language** between business and tech.  
-- Real-world examples reinforced the importance of the **business-first approach** rather than focusing solely on technology.  
-
-#### Lessons learned
-- Applying DDD and event-driven patterns reduces **coupling** while improving **scalability** and **resilience**.  
-- Modernization requires a **phased approach** with **ROI measurement**; rushing the process can be risky.  
-- AI tools like Amazon Q Developer can significantly **boost productivity** when integrated into the current workflow.  
-
-#### Some event photos
-*Add your event photos here*  
-
-> Overall, the event not only provided technical knowledge but also helped me reshape my thinking about application design, system modernization, and cross-team collaboration.
+> Overall, the event not only provided deep technical insights but also reshaped my mindset regarding modern application design, cloud native systems, and effective cross-functional team collaboration.

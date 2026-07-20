@@ -1,59 +1,44 @@
 ---
 title: "Worklog Tuần 8"
-date: 2024-01-01
+date: 2026
 weight: 1
 chapter: false
 pre: " <b> 1.8. </b> "
 ---
-{{% notice warning %}}
-⚠️ **Lưu ý:** Các thông tin dưới đây chỉ nhằm mục đích tham khảo, vui lòng **không sao chép nguyên văn** cho bài báo cáo của bạn kể cả warning này.
-{{% /notice %}}
 
 
 ### Mục tiêu tuần 8:
 
-* Kết nối, làm quen với các thành viên trong First Cloud AI Journey.
-* Hiểu dịch vụ AWS cơ bản, cách dùng console & CLI.
+* Giới hạn delegated administrator bằng permission boundary.
+* Định nghĩa hạ tầng full-stack bằng AWS CDK thay vì thao tác console hoặc YAML dài.
+* Dịch chuyển database bằng AWS DMS với mục tiêu giảm downtime.
+* Thiết kế IAM role condition dựa trên ràng buộc mạng thực tế.
 
 ### Các công việc cần triển khai trong tuần này:
 | Thứ | Công việc                                                                                                                                                                                   | Ngày bắt đầu | Ngày hoàn thành | Nguồn tài liệu                            |
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ | --------------- | ----------------------------------------- |
-| 2   | - Làm quen với các thành viên FCAJ <br> - Đọc và lưu ý các nội quy, quy định tại đơn vị thực tập                                                                                             | 11/08/2025   | 11/08/2025      |
-| 3   | - Tìm hiểu AWS và các loại dịch vụ <br>&emsp; + Compute <br>&emsp; + Storage <br>&emsp; + Networking <br>&emsp; + Database <br>&emsp; + ... <br>                                            | 12/08/2025   | 12/08/2025      | <https://cloudjourney.awsstudygroup.com/> |
-| 4   | - Tạo AWS Free Tier account <br> - Tìm hiểu AWS Console & AWS CLI <br> - **Thực hành:** <br>&emsp; + Tạo AWS account <br>&emsp; + Cài AWS CLI & cấu hình <br> &emsp; + Cách sử dụng AWS CLI | 13/08/2025   | 13/08/2025      | <https://cloudjourney.awsstudygroup.com/> |
-| 5   | - Tìm hiểu EC2 cơ bản: <br>&emsp; + Instance types <br>&emsp; + AMI <br>&emsp; + EBS <br>&emsp; + ... <br> - Các cách remote SSH vào EC2 <br> - Tìm hiểu Elastic IP   <br>                  | 14/08/2025   | 15/08/2025      | <https://cloudjourney.awsstudygroup.com/> |
-| 6   | - **Thực hành:** <br>&emsp; + Tạo EC2 instance <br>&emsp; + Kết nối SSH <br>&emsp; + Gắn EBS volume                                                                                         | 15/08/2025   | 15/08/2025      | <https://cloudjourney.awsstudygroup.com/> |
+| 1   | - Giới hạn quyền người dùng bằng IAM Permission Boundary.<br> - Thiết kế boundary phân tầng cho DoiPho và Dev user để ngăn leo thang đặc quyền và chặn quyền RDS.                              | 18/05/2026 | 18/05/2026      | <https://000030.awsstudygroup.com/> |
+| 2   | - Xây dựng hạ tầng cơ bản bằng AWS CDK.<br> - Dùng TypeScript CDK tạo VPC, public EC2, private RDS MariaDB, security group và UserData seed database.<br>                                              | 19/05/2026 | 19/05/2026      | <https://000038.awsstudygroup.com/> |
+| 3   | - Thực hiện database schema conversion và migration.<br> - Dịch chuyển database của web app trên EC2 từ RDS MySQL sang RDS MariaDB bằng DMS endpoint và full load + CDC. | 20/05/2026 | 20/05/2026      | <https://000043.awsstudygroup.com/> |
+| 4   | - Kiểm thử IAM Role và Condition.<br> - Điều chỉnh lab từ điều kiện IP sang aws:RequestedRegion do mạng trường dùng IP động, rồi kiểm thử allow ở Singapore và deny ở N. Virginia.<br>                            | 21/05/2026 | 21/05/2026      | <https://000044.awsstudygroup.com/> |
 
 
 ### Kết quả đạt được tuần 8:
 
-* Hiểu AWS là gì và nắm được các nhóm dịch vụ cơ bản: 
-  * Compute
-  * Storage
-  * Networking 
-  * Database
-  * ...
+* Tổng quan:
 
-* Đã tạo và cấu hình AWS Free Tier account thành công.
+Trong tuần này, tôi tập trung vào chủ đề iam nâng cao, cdk, database migration và truy cập có điều kiện. Nội dung được tổng hợp từ worklog theo ngày và biên tập lại thành định dạng báo cáo theo tuần.
 
-* Làm quen với AWS Management Console và biết cách tìm, truy cập, sử dụng dịch vụ từ giao diện web.
+* Kiến thức đã học:
 
-* Cài đặt và cấu hình AWS CLI trên máy tính bao gồm:
-  * Access Key
-  * Secret Key
-  * Region mặc định
-  * ...
+- Giới hạn delegated administrator bằng permission boundary.
+- Định nghĩa hạ tầng full-stack bằng AWS CDK thay vì thao tác console hoặc YAML dài.
+- Dịch chuyển database bằng AWS DMS với mục tiêu giảm downtime.
+- Thiết kế IAM role condition dựa trên ràng buộc mạng thực tế.
+* Thực hành:
 
-* Sử dụng AWS CLI để thực hiện các thao tác cơ bản như:
-
-  * Kiểm tra thông tin tài khoản & cấu hình
-  * Lấy danh sách region
-  * Xem dịch vụ EC2
-  * Tạo và quản lý key pair
-  * Kiểm tra thông tin dịch vụ đang chạy
-  * ...
-
-* Có khả năng kết nối giữa giao diện web và CLI để quản lý tài nguyên AWS song song.
-* ...
+- Hiểu permission boundary là trần quyền tối đa, không phải policy cấp quyền thông thường.
+- Tạo hạ tầng bằng CDK và kết nối an toàn giữa tầng ứng dụng và database.
+- Thực hành heterogeneous database migration và điều chỉnh IAM condition theo ràng buộc môi trường thật.
 
 

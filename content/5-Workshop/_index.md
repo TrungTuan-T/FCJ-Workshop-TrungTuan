@@ -1,31 +1,25 @@
 ---
 title: "Workshop"
-date: 2024-01-01
+date: 2026-07-10
 weight: 5
 chapter: false
 pre: " <b> 5. </b> "
 ---
-{{% notice warning %}}
-⚠️ **Note:** The information below is for reference purposes only. Please **do not copy verbatim** for your report, including this warning.
-{{% /notice %}}
 
-# Secure Hybrid Access to S3 using VPC Endpoints
+# AWS Student Management Portal
 
 #### Overview
 
-**AWS PrivateLink** provides private connectivity to AWS services from VPCs and your on-premises networks, without exposing your traffic to the Public Internet.
+**AWS Student Management Portal** is a student management system built on a **Serverless architecture on AWS**.  
+The system serves three user groups: **Admin, Teacher, and Student**, with clear separation of privileges between account administration, academic management, and personal profile lookups.
 
-In this lab, you will learn how to create, configure, and test VPC endpoints that enable your workloads to reach AWS services without traversing the Public Internet.
+In this workshop, you will learn how to design, configure, and deploy a complete serverless application on AWS using modern cloud services.
 
-You will create two types of endpoints to access Amazon S3: a Gateway VPC endpoint, and an Interface VPC endpoint. These two types of VPC endpoints offer different benefits depending on if you are accessing Amazon S3 from the cloud or your on-premises location
-+ **Gateway** - Create a gateway endpoint to send traffic to Amazon S3 or DynamoDB using private IP addresses.You route traffic from your VPC to the gateway endpoint using route tables.
-+ **Interface** - Create an interface endpoint to send traffic to endpoint services that use a Network Load Balancer to distribute traffic. Traffic destined for the endpoint service is resolved using DNS.
+#### Table of Contents
 
-#### Content
-
-1. [Workshop overview](5.1-Workshop-overview)
-2. [Prerequiste](5.2-Prerequiste/)
-3. [Access S3 from VPC](5.3-S3-vpc/)
-4. [Access S3 from On-premises](5.4-S3-onprem/)
-5. [VPC Endpoint Policies (Bonus)](5.5-Policy/)
-6. [Clean up](5.6-Cleanup/)
+1. [Introduction & Architecture](5.1-overview-architecture/)
+2. [Prerequisites & Preparation](5.2-prerequisite/)
+3. [Database & Infrastructure](5.3-infrastructure-database/)
+4. [Backend & API Gateway Deployment](5.4-backend-apigateway/)
+5. [Frontend & Hosting Deployment](5.5-frontend-deployment/)
+6. [Testing & Cleanup](5.6-testing-cleanup/)

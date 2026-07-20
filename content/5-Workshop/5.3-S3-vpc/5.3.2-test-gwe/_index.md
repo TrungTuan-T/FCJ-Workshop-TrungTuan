@@ -1,6 +1,6 @@
 ---
 title : "Test the Gateway Endpoint"
-date : 2024-01-01 
+date : 2026 
 weight : 2
 chapter : false
 pre : " <b> 5.3.2 </b> "
@@ -31,7 +31,7 @@ pre : " <b> 5.3.2 </b> "
 
 + For this workshop, you will use **AWS Session Manager** to access several **EC2 instances**. **Session Manager** is a fully managed **AWS Systems Manager** capability that allows you to manage your **Amazon EC2 instances**  and on-premises virtual machines (VMs) through an interactive one-click browser-based shell. Session Manager provides secure and auditable instance management without the need to open inbound ports, maintain bastion hosts, or manage SSH keys.
 
-+ First Cloud AI Journey [Lab](https://000058.awsstudygroup.com/1-introduce/) for indepth understanding of Session manager.
++ First cloud journey [Lab](https://000058.awsstudygroup.com/1-introduce/) for indepth understanding of Session manager.
 
 1. In the **AWS Management Console**, start typing ```Systems Manager``` in the quick search box and press **Enter**:
 

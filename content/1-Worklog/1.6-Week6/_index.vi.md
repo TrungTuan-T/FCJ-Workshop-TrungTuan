@@ -1,58 +1,45 @@
 ---
 title: "Worklog Tuần 6"
-date: 2024-01-01
+date: 2026
 weight: 1
 chapter: false
 pre: " <b> 1.6. </b> "
 ---
-{{% notice warning %}}
-⚠️ **Lưu ý:** Các thông tin dưới đây chỉ nhằm mục đích tham khảo, vui lòng **không sao chép nguyên văn** cho bài báo cáo của bạn kể cả warning này.
-{{% /notice %}}
 
 
 ### Mục tiêu tuần 6:
 
-* Kết nối, làm quen với các thành viên trong First Cloud AI Journey.
-* Hiểu dịch vụ AWS cơ bản, cách dùng console & CLI.
-
+* Tự động hóa triển khai ứng dụng lên EC2 bằng CodePipeline và CodeDeploy.
+* Giới hạn thao tác EC2 bằng IAM condition dựa trên tag.
+* Cài Grafana và kết nối với CloudWatch metrics thông qua IAM Role.
+* Quản lý EC2 fleet bằng Systems Manager và thu thập memory metrics để right-sizing.
+* Phân tích truy cập S3 và mã hóa bằng KMS, CloudTrail và Athena.
 ### Các công việc cần triển khai trong tuần này:
 | Thứ | Công việc                                                                                                                                                                                   | Ngày bắt đầu | Ngày hoàn thành | Nguồn tài liệu                            |
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ | --------------- | ----------------------------------------- |
-| 2   | - Làm quen với các thành viên FCAJ <br> - Đọc và lưu ý các nội quy, quy định tại đơn vị thực tập                                                                                             | 11/08/2025   | 11/08/2025      |
-| 3   | - Tìm hiểu AWS và các loại dịch vụ <br>&emsp; + Compute <br>&emsp; + Storage <br>&emsp; + Networking <br>&emsp; + Database <br>&emsp; + ... <br>                                            | 12/08/2025   | 12/08/2025      | <https://cloudjourney.awsstudygroup.com/> |
-| 4   | - Tạo AWS Free Tier account <br> - Tìm hiểu AWS Console & AWS CLI <br> - **Thực hành:** <br>&emsp; + Tạo AWS account <br>&emsp; + Cài AWS CLI & cấu hình <br> &emsp; + Cách sử dụng AWS CLI | 13/08/2025   | 13/08/2025      | <https://cloudjourney.awsstudygroup.com/> |
-| 5   | - Tìm hiểu EC2 cơ bản: <br>&emsp; + Instance types <br>&emsp; + AMI <br>&emsp; + EBS <br>&emsp; + ... <br> - Các cách remote SSH vào EC2 <br> - Tìm hiểu Elastic IP   <br>                  | 14/08/2025   | 15/08/2025      | <https://cloudjourney.awsstudygroup.com/> |
-| 6   | - **Thực hành:** <br>&emsp; + Tạo EC2 instance <br>&emsp; + Kết nối SSH <br>&emsp; + Gắn EBS volume                                                                                         | 15/08/2025   | 15/08/2025      | <https://cloudjourney.awsstudygroup.com/> |
-
+| 1   | - Triển khai ứng dụng lên EC2 bằng AWS CodePipeline. <br> - Kết nối GitHub, CodePipeline, S3 artifact, CodeDeploy, AppSpec hook, script PM2 và CodeDeploy agent trên EC2.                                                                                             | 08/05/2026 | 08/05/2026      | <https://000017.awsstudygroup.com/><https://000023.awsstudygroup.com/>   |
+| 2   | - Quản lý quyền EC2 bằng tag thông qua IAM.<br> - Tạo policy bắt buộc Environment=Test khi tạo máy và chỉ cho phép start/stop/terminate với instance có tag phù hợp.<br>                                              | 09/05/2026 | 09/05/2026      | <https://000028.awsstudygroup.com/> |
+| 3   | - Cài Grafana trên EC2 và kết nối CloudWatch.<br> - Tạo VPC/SG/EC2, mở cổng 3000, gắn IAM Role và trực quan hóa CPUUtilization trên Grafana. | 10/05/2026 | 10/05/2026      | <https://000029.awsstudygroup.com/> |
+| 4   | - Quản lý patch và chạy lệnh bằng AWS Systems Manager. <br> - Gắn AmazonSSMManagedInstanceCore, xử lý lỗi Managed Nodes offline và chạy command hàng loạt trên instance. <br>                            | 10/05/2026 | 10/05/2026      | <https://000031.awsstudygroup.com/> |
+| 5   | - Chọn size EC2 phù hợp bằng CloudWatch Agent. <br> - Cài CloudWatch Agent, thu thập RAM metrics và chuẩn bị dữ liệu cho Compute Optimizer/Cost Explorer.                                     | 11/05/2026 | 11/05/2026      | <https://000032.awsstudygroup.com/> |
+| 6   | - Mã hóa dữ liệu nghỉ bằng AWS KMS và audit truy cập. <br> - Dùng CloudTrail data events và Athena SQL để phát hiện truy cập, sau đó kiểm chứng KMS deny khi thiếu quyền Decrypt.                                                      | 12/05/2026 | 12/05/2026      | <https://000033.awsstudygroup.com/> |
 
 ### Kết quả đạt được tuần 6:
-* Hiểu AWS là gì và nắm được các nhóm dịch vụ cơ bản: 
-  * Compute
-  * Storage
-  * Networking 
-  * Database
-  * ...
+* Tổng quan:
 
-* Đã tạo và cấu hình AWS Free Tier account thành công.
+Trong tuần này, tôi tập trung vào chủ đề ci/cd, iam governance, monitoring, systems management và mã hóa. Nội dung được tổng hợp từ worklog theo ngày và biên tập lại thành định dạng báo cáo theo tuần.
 
-* Làm quen với AWS Management Console và biết cách tìm, truy cập, sử dụng dịch vụ từ giao diện web.
+* Kiến thức đã học:
 
-* Cài đặt và cấu hình AWS CLI trên máy tính bao gồm:
-  * Access Key
-  * Secret Key
-  * Region mặc định
-  * ...
+- Tự động hóa triển khai ứng dụng lên EC2 bằng CodePipeline và CodeDeploy.
+- Giới hạn thao tác EC2 bằng IAM condition dựa trên tag.
+- Cài Grafana và kết nối với CloudWatch metrics thông qua IAM Role.
+- Quản lý EC2 fleet bằng Systems Manager và thu thập memory metrics để right-sizing.
+- Phân tích truy cập S3 và mã hóa bằng KMS, CloudTrail và Athena.
+* Thực hành:
 
-* Sử dụng AWS CLI để thực hiện các thao tác cơ bản như:
-
-  * Kiểm tra thông tin tài khoản & cấu hình
-  * Lấy danh sách region
-  * Xem dịch vụ EC2
-  * Tạo và quản lý key pair
-  * Kiểm tra thông tin dịch vụ đang chạy
-  * ...
-
-* Có khả năng kết nối giữa giao diện web và CLI để quản lý tài nguyên AWS song song.
-* ...
+- Xây dựng được luồng CI/CD và xử lý các lỗi thường gặp ở CodeDeploy/IAM/AppSpec.
+- Thực hành governance thực tế bằng tag, IAM condition và kiểm soát mã hóa.
+- Tăng khả năng vận hành hệ thống bằng Grafana, CloudWatch Agent và Systems Manager.
 
 
