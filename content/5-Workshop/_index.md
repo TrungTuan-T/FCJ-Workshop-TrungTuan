@@ -3,7 +3,7 @@ title: "Workshop"
 date: 2026-07-22
 weight: 5
 chapter: false
-pre : " <b> 5.6. </b> "
+pre : " <b> 5. </b> "
 ---
 
 #### Design and Deploy AWS Infrastructure for TSL-SignMap System
