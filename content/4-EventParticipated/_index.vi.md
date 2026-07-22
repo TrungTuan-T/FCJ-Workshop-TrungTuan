@@ -9,7 +9,7 @@ pre: " <b> 4. </b> "
 Trong quá trình thực tập, em đã tham gia 1 events, với mỗi event là một trải nghiệm đáng nhớ với những kiến thức mới, hay và bổ ích, cùng với đó là nhứng món quà và những khoảnh khắc rất tuyệt vời.
 
 
-### [Event 2](4.2-Event2/)
+### [Event 1](4.1-Event1/)
 &emsp;**Tên sự kiện:** FCAJ MeetUp
 
 &emsp;**Thời gian:** 09:00 ngày 30/05/2026
