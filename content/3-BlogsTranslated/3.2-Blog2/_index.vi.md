@@ -6,97 +6,358 @@ chapter: false
 pre: " <b> 3.2. </b> "
 ---
 
+# Xây dựng Mobile Backend cho Crowdsourcing App với AWS Serverless
 
-# Hệ Thống Tìm Kiếm Dữ Liệu JSON Hợp Nhất Trên AWS
-
-**Giới thiệu**
-Trong các ứng dụng hiện đại như nền tảng streaming, thương mại điện tử hoặc hệ thống dữ liệu lớn, dữ liệu thường không nằm trong một cơ sở dữ liệu duy nhất. Một phần dữ liệu cần truy xuất rất nhanh, một phần cần đảm bảo giao dịch, một phần khác lại phục vụ phân tích hoặc lưu trữ lâu dài.
-
-Điều này đặt ra câu hỏi: làm thế nào để người dùng có thể tìm kiếm dữ liệu từ nhiều nguồn khác nhau một cách nhanh chóng và chính xác?
-
-AWS cung cấp một hướng tiếp cận hiệu quả bằng cách kết hợp nhiều dịch vụ lưu trữ dữ liệu với Amazon OpenSearch Service để xây dựng một hệ thống tìm kiếm hợp nhất.
+Ứng dụng crowdsourcing như TSL-SignMap cần backend scalable, real-time và cost-effective. Bài viết này trình bày kiến trúc serverless cho mobile app quản lý location-based data.
 
 ---
 
-## Vì sao không sử dụng một cơ sở dữ liệu duy nhất?
+## Yêu cầu của Crowdsourcing App
 
-Khi mới bắt đầu học lập trình và xây dựng website, tôi từng nghĩ rằng chỉ cần một cơ sở dữ liệu như MySQL là đủ để lưu trữ toàn bộ dữ liệu của hệ thống. Tuy nhiên, khi tìm hiểu sâu hơn về AWS và kiến trúc của các hệ thống lớn, tôi nhận ra cách tiếp cận đó chỉ phù hợp với dự án nhỏ.
-
-Khi dữ liệu tăng lên hàng triệu hoặc hàng tỷ bản ghi, việc dùng một cơ sở dữ liệu duy nhất sẽ tạo ra nhiều giới hạn về hiệu năng, khả năng mở rộng và chi phí vận hành. Mỗi loại dữ liệu cần một công cụ phù hợp:
-
-DynamoDB phù hợp với dữ liệu cần truy xuất nhanh.
-Aurora PostgreSQL phù hợp với dữ liệu giao dịch.
-DocumentDB phù hợp với dữ liệu JSON linh hoạt.
-S3 phù hợp với lưu trữ dữ liệu lớn.
-Redshift phù hợp với phân tích dữ liệu.
-Nếu chỉ sử dụng một hệ thống duy nhất, hiệu năng và khả năng mở rộng sẽ bị hạn chế.
-
----
-
-
-## Kiến trúc tổng thể
-
-Hệ thống gồm hai phần chính.
-
-Tầng lưu trữ dữ liệu gồm Amazon DynamoDB, Amazon Aurora PostgreSQL, Amazon DocumentDB, Amazon S3 và Amazon Redshift. Mỗi dịch vụ lưu trữ một loại dữ liệu riêng theo đặc điểm nghiệp vụ.
-
-Tầng tìm kiếm sử dụng Amazon OpenSearch Service. Dữ liệu cần tìm kiếm được đồng bộ vào OpenSearch để người dùng chỉ cần gửi truy vấn đến một nơi thay vì tìm kiếm trên từng cơ sở dữ liệu riêng lẻ.                                |
+| Yêu cầu | Giải pháp AWS |
+|---------|---------------|
+| User authentication | Amazon Cognito |
+| Real-time location | Amazon Location Service |
+| Image upload | S3 presigned URL |
+| API scalability | API Gateway + Lambda |
+| Data storage | DynamoDB (location GSI) |
+| Push notifications | Amazon SNS |
+| Offline sync | AppSync + DynamoDB |
 
 ---
 
-## Vai trò của các dịch vụ AWS
+## Architecture Overview
 
-Amazon DynamoDB - xử lý dữ liệu thời gian thực
-Amazon DynamoDB là cơ sở dữ liệu NoSQL có độ trễ thấp và khả năng mở rộng cao. Dịch vụ này phù hợp cho hồ sơ người dùng, lịch sử hoạt động và dữ liệu thời gian thực.
-
-Ví dụ, trên nền tảng xem phim, thông tin như user_id, tên phim và thời điểm đang xem có thể được lưu trong DynamoDB. Khi người dùng tiếp tục xem phim trên thiết bị khác, DynamoDB có thể trả dữ liệu gần như ngay lập tức.
-
----
-
-## Amazon Aurora PostgreSQL
-
-Aurora PostgreSQL phù hợp với dữ liệu giao dịch như thanh toán, đơn hàng và thông tin giao dịch. Nhờ hỗ trợ ACID Transaction, Aurora giúp đảm bảo dữ liệu luôn nhất quán và đáng tin cậy ngay cả khi hệ thống gặp sự cố.
-
----
-
-## Amazon DocumentDB
-
-- DocumentDB phù hợp với dữ liệu JSON linh hoạt như thông tin sản phẩm, metadata hoặc nội dung không có schema cố định. Với thương mại điện tử, mỗi sản phẩm có thể có các thuộc tính khác nhau mà không cần thay đổi cấu trúc cơ sở dữ liệu.
----
-
-## Amazon S3
-
-Amazon S3 được sử dụng làm data lake, nơi lưu trữ log, backup và dữ liệu lớn với chi phí thấp. S3 có khả năng mở rộng gần như không giới hạn và thường đóng vai trò nền tảng cho các pipeline phân tích dữ liệu.
----
-
-## Amazon Redshift
-
-Amazon Redshift cung cấp khả năng phân tích dữ liệu lớn hiệu suất cao. Với kiểu dữ liệu SUPER và PartiQL, Redshift có thể xử lý dữ liệu JSON phức tạp, phân cấp và phục vụ báo cáo lịch sử.
-
-Trong ví dụ nền tảng phát trực tuyến phim, Redshift có thể phân tích hàng tỷ sự kiện như play, pause và skip từ S3 để tính điểm xu hướng, sau đó xuất kết quả tổng hợp để đưa vào OpenSearch nhằm cải thiện xếp hạng tìm kiếm.
+```
+Mobile App → API Gateway → Lambda → DynamoDB
+              ↓                  ↓
+          Cognito         S3 (Images)
+              ↓                  ↓
+         Location Service    SageMaker
+              ↓
+            SNS (Notifications)
+```
 
 ---
 
-## Amazon OpenSearch Service
+## User Authentication với Cognito
 
-OpenSearch là thành phần trung tâm của hệ thống tìm kiếm. Dịch vụ này hỗ trợ full-text search, fuzzy search, auto suggestion, vector search và AI search.
+**Setup Cognito User Pool**
 
-Ví dụ, khi người dùng nhập “Tìm điện thoại Samsung dưới 10 triệu”, OpenSearch có thể trả về các sản phẩm phù hợp ngay cả khi từ khóa chưa hoàn toàn chính xác.
+```bash
+aws cognito-idp create-user-pool \
+  --pool-name tsl-signmap-users \
+  --policies "PasswordPolicy={MinimumLength=8,RequireUppercase=true}" \
+  --auto-verified-attributes email \
+  --mfa-configuration OPTIONAL
+```
+
+**Mobile App Integration (React Native)**
+
+```javascript
+import { Amplify, Auth } from 'aws-amplify';
+
+Amplify.configure({
+  Auth: {
+    region: 'ap-southeast-1',
+    userPoolId: 'ap-southeast-1_ABC123',
+    userPoolWebClientId: 'abc123def456',
+  }
+});
+
+// Sign up
+async function signUp(email, password) {
+  try {
+    await Auth.signUp({
+      username: email,
+      password,
+      attributes: { email }
+    });
+  } catch (error) {
+    console.error('Sign up error:', error);
+  }
+}
+
+// Sign in
+async function signIn(email, password) {
+  try {
+    const user = await Auth.signIn(email, password);
+    const token = user.signInUserSession.idToken.jwtToken;
+    return token;
+  } catch (error) {
+    console.error('Sign in error:', error);
+  }
+}
+```
+
+**JWT Authorization trong API Gateway**
+
+```javascript
+// Lambda Authorizer
+exports.handler = async (event) => {
+  const token = event.authorizationToken;
+  
+  try {
+    const decoded = await verifyToken(token);
+    return generatePolicy(decoded.sub, 'Allow', event.methodArn);
+  } catch (error) {
+    return generatePolicy('user', 'Deny', event.methodArn);
+  }
+};
+```
 
 ---
 
-### Đồng bộ dữ liệu vào OpenSearch
+## Location Service Integration
 
-AWS cung cấp OpenSearch Ingestion (OSI) để thu thập, chuyển đổi và đồng bộ dữ liệu vào OpenSearch. Quá trình này thường gồm hai giai đoạn:
+**Geocoding và Reverse Geocoding**
 
-Initial Load: nạp toàn bộ dữ liệu ban đầu từ DynamoDB, Aurora, DocumentDB hoặc S3 vào OpenSearch.
-Change Data Capture: sau khi có baseline dữ liệu, hệ thống chỉ đồng bộ các thay đổi mới nhất.
-Cách tiếp cận này giúp giảm tải cho hệ thống nguồn, giảm chi phí và giữ dữ liệu gần thời gian thực.
+```javascript
+// Lambda function xử lý location
+const { LocationClient, SearchPlaceIndexForPositionCommand } = require('@aws-sdk/client-location');
 
-### Kết luận
+const client = new LocationClient({ region: 'ap-southeast-1' });
 
-Việc kết hợp DynamoDB, Aurora, DocumentDB, S3, Redshift và OpenSearch giúp xây dựng một hệ thống dữ liệu hiện đại, linh hoạt và dễ mở rộng. Amazon OpenSearch Service đóng vai trò trung tâm trong việc hợp nhất dữ liệu và cung cấp khả năng tìm kiếm mạnh mẽ cho người dùng.
+async function getAddress(lat, lng) {
+  const command = new SearchPlaceIndexForPositionCommand({
+    IndexName: 'TSL-SignMap-Index',
+    Position: [lng, lat],
+    MaxResults: 1
+  });
+  
+  const response = await client.send(command);
+  return response.Results[0].Place.Label;
+}
 
-Đây là kiến trúc phổ biến trong các hệ thống quy mô lớn như nền tảng streaming, thương mại điện tử và các ứng dụng dữ liệu hiện đại trên AWS.
+// API response
+{
+  "lat": 10.762622,
+  "lng": 106.660172,
+  "address": "123 Nguyễn Huệ, Quận 1, TP.HCM"
+}
+```
 
-**Nguồn tham khảo:** <https://awsstudygroup.com/2026/05/20/cach-xay-dung-giai-phap-tim-kiem-json-hop-nhat-trong-aws/>
+---
+
+## Image Upload với S3 Presigned URL
+
+**Lambda generate presigned URL**
+
+```python
+import boto3
+import json
+from datetime import timedelta
+
+s3 = boto3.client('s3')
+
+def lambda_handler(event, context):
+    user_id = event['requestContext']['authorizer']['claims']['sub']
+    filename = event['queryStringParameters']['filename']
+    content_type = event['queryStringParameters']['contentType']
+    
+    # Generate unique key
+    key = f'signs/{user_id}/{filename}'
+    
+    # Create presigned URL (valid 5 minutes)
+    presigned_url = s3.generate_presigned_url(
+        'put_object',
+        Params={
+            'Bucket': 'tsl-signmap-images',
+            'Key': key,
+            'ContentType': content_type
+        },
+        ExpiresIn=300
+    )
+    
+    return {
+        'statusCode': 200,
+        'body': json.dumps({
+            'uploadUrl': presigned_url,
+            'imageKey': key
+        })
+    }
+```
+
+**Mobile App Upload**
+
+```javascript
+// Get presigned URL
+const response = await fetch(
+  `https://api.tsl-signmap.com/signs/upload-url?filename=${filename}&contentType=image/jpeg`,
+  {
+    headers: { 'Authorization': `Bearer ${token}` }
+  }
+);
+
+const { uploadUrl, imageKey } = await response.json();
+
+// Upload image directly to S3
+await fetch(uploadUrl, {
+  method: 'PUT',
+  headers: { 'Content-Type': 'image/jpeg' },
+  body: imageBlob
+});
+
+// Save sign data with image key
+await submitSign({
+  location: { lat, lng },
+  imageKey,
+  signType: 'stop'
+});
+```
+
+---
+
+## DynamoDB Schema cho Location Data
+
+**Table Design**
+
+```python
+# TrafficSigns table
+{
+  "SignID": "sign_12345",  # PK
+  "Location": {
+    "lat": 10.762622,
+    "lng": 106.660172
+  },
+  "GeoHash": "w3gvk1hs",  # For proximity search
+  "SignType": "stop",
+  "ImageKey": "signs/user123/image.jpg",
+  "Status": "pending",
+  "SubmittedBy": "user_abc123",
+  "SubmittedAt": "2026-01-15T10:30:00Z",
+  "Votes": {
+    "upvotes": 5,
+    "downvotes": 1
+  }
+}
+
+# GSI for location queries
+GSI: GeoHashIndex
+- PartitionKey: GeoHash (first 5 chars)
+- SortKey: SignID
+```
+
+**Proximity Search**
+
+```python
+import geohash2
+import boto3
+
+dynamodb = boto3.resource('dynamodb')
+table = dynamodb.Table('TrafficSigns')
+
+def find_nearby_signs(lat, lng, radius_km=1):
+    # Calculate geohash
+    center_hash = geohash2.encode(lat, lng, precision=5)
+    
+    # Get neighbors
+    neighbors = geohash2.neighbors(center_hash)
+    all_hashes = [center_hash] + neighbors
+    
+    # Query DynamoDB
+    signs = []
+    for gh in all_hashes:
+        response = table.query(
+            IndexName='GeoHashIndex',
+            KeyConditionExpression='GeoHash = :gh',
+            ExpressionAttributeValues={':gh': gh}
+        )
+        signs.extend(response['Items'])
+    
+    # Filter by distance
+    results = []
+    for sign in signs:
+        distance = calculate_distance(
+            lat, lng,
+            sign['Location']['lat'], sign['Location']['lng']
+        )
+        if distance <= radius_km:
+            results.append({**sign, 'distance': distance})
+    
+    return sorted(results, key=lambda x: x['distance'])
+```
+
+---
+
+## Real-time Notifications với SNS
+
+**Create Topic và Subscribe**
+
+```python
+import boto3
+
+sns = boto3.client('sns')
+
+# Create topic
+topic_arn = sns.create_topic(Name='sign-updates')['TopicArn']
+
+# Subscribe user endpoint
+sns.subscribe(
+    TopicArn=topic_arn,
+    Protocol='application',
+    Endpoint=device_token  # From mobile app
+)
+```
+
+**Send Notification khi Sign được duyệt**
+
+```python
+# Lambda trigger sau khi admin approve
+def lambda_handler(event, context):
+    sign_id = event['signId']
+    user_id = event['submittedBy']
+    
+    # Get user's SNS endpoint
+    endpoint_arn = get_user_endpoint(user_id)
+    
+    # Send notification
+    sns.publish(
+        TargetArn=endpoint_arn,
+        Message=json.dumps({
+            'default': 'Your sign contribution was approved!',
+            'GCM': json.dumps({
+                'notification': {
+                    'title': 'Sign Approved',
+                    'body': f'Sign {sign_id} earned you 10 coins!'
+                },
+                'data': {
+                    'signId': sign_id,
+                    'coinsEarned': 10
+                }
+            })
+        }),
+        MessageStructure='json'
+    )
+```
+
+---
+
+## Cost Estimation
+
+| Service | Usage | Cost/month |
+|---------|-------|------------|
+| API Gateway | 5M requests | $17.50 |
+| Lambda | 10M invocations, 512MB | $15 |
+| DynamoDB | 5M reads, 1M writes | $7.50 |
+| S3 | 100K images, 50GB | $1.50 |
+| Cognito | 5K MAU | $0 (free tier) |
+| Location Service | 100K geocoding | $5 |
+| SNS | 1M notifications | $2 |
+| **Total** | | **~$48.50** |
+
+---
+
+## Kết luận
+
+Serverless architecture trên AWS cung cấp giải pháp ideal cho crowdsourcing mobile app:
+- **Auto-scaling**: Xử lý traffic tăng đột biến
+- **Cost-effective**: Pay per use, không có idle cost
+- **Developer-friendly**: Tập trung vào business logic
+- **Global**: Multi-region deployment dễ dàng
+
+**Nguồn tham khảo:**
+- <https://docs.aws.amazon.com/location/>
+- <https://docs.amplify.aws/lib/datastore/>
+
+---

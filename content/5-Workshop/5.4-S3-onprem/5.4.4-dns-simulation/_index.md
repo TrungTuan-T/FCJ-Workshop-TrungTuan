@@ -1,111 +1,291 @@
 ---
-title : "On-premises DNS Simulation"
-date : 2026
-weight : 4
-chapter : false
-pre : " <b> 5.4.4 </b> "
+title: "Monitoring & Logging"
+date: 2026-07-10
+weight: 4
+chapter: false
 ---
 
-AWS PrivateLink endpoints have a fixed IP address in each Availability Zone where they are deployed, for the life of the endpoint (until it is deleted). These IP addresses are attached to Elastic Network Interfaces (ENIs). AWS recommends using DNS to resolve the IP addresses for endpoints so that downstream applications use the latest IP addresses when ENIs are added to new AZs, or deleted over time.
+### Overview
 
-In this section, you will create a forwarding rule to send DNS resolution requests from a simulated on-premises environment to a Route 53 Private Hosted Zone. This section leverages the infrastructure deployed by CloudFormation in the Prepare the environment section.
+Setup CloudWatch monitoring and logging for TSL-SignMap API.
 
-#### Create DNS Alias Records for the Interface endpoint
-1. Navigate to the [Route 53 management console](https://us-east-1.console.aws.amazon.com/route53/v2/hostedzones?region=us-east-1#) (Hosted Zones section).  The CloudFormation template you deployed in the Prepare the environment section created this Private Hosted Zone. Click on the name of the Private Hosted Zone, s3.us-east-1.amazonaws.com:
+---
 
-![hosted zone](/images/5-Workshop/5.4-S3-onprem/hosted-zone.png)
+### Step 1: Enable CloudWatch Logs
 
-2. Create a new record in the Private Hosted Zone:
+```bash
+# Create log role
+cat > api-logging-trust.json << 'EOF'
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Effect": "Allow",
+    "Principal": { "Service": "apigateway.amazonaws.com" },
+    "Action": "sts:AssumeRole"
+  }]
+}
+EOF
 
-![Create record](/images/5-Workshop/5.4-S3-onprem/create-record1.png)
+aws iam create-role \
+  --role-name APIGatewayLogsRole \
+  --assume-role-policy-document file://api-logging-trust.json
 
-+ Record name and record type keep default options
-+ Alias Button: Click to enable
-+ Route traffic to: Alias to VPC Endpoint
-+ Region: US East (N. Virginia) [us-east-1]
-+ Choose endpoint: Paste the Regional VPC Endpoint DNS name from your text editor (you saved when doing section 4.3)
+aws iam attach-role-policy \
+  --role-name APIGatewayLogsRole \
+  --policy-arn arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs
 
-![record1](/images/5-Workshop/5.4-S3-onprem/record1.png)
+# Set account role
+ROLE_ARN=$(aws iam get-role --role-name APIGatewayLogsRole --query 'Role.Arn' --output text)
 
-3. Click Add another record, and add a second record using the following values. Click Create records when finished to create both records.
-+ Record name: *.
-+ Record type: keep default value (type A)
-+ Alias Button: Click to enable
-+ Route traffic to: Alias to VPC Endpoint
-+ Region: US East (N. Virginia) [us-east-1]
-+ Choose endpoint: Paste the Regional VPC Endpoint DNS name from your text editor
-
-![record 2](/images/5-Workshop/5.4-S3-onprem/record2.png)
-
-The new records appear in the Route 53 console:
-
-![result](/images/5-Workshop/5.4-S3-onprem/result.png)
-
-#### Create a Resolver Forwarding Rule
-
-Route 53 Resolver Forwarding Rules allow you to forward DNS queries from your VPC to other sources for name resolution. Outside of a workshop environment, you might use this feature to forward DNS queries from your VPC to DNS servers running on-premises. In this section, you will simulate an on-premises conditional forwarder by creating a forwarding rule that forwards DNS queries for Amazon S3 to a Private Hosted Zone running in "VPC Cloud" in-order to resolve the PrivateLink interface endpoint regional DNS name.
-
-1. From the Route 53 management console, click **Inbound endpoints** on the left side bar
-2. In the Inbound endpoints console, click the ID of the inbound endpoint
-
-![Inbound endpoint](/images/5-Workshop/5.4-S3-onprem/route53-1.png)
-
-3. Copy the two IP addresses listed to your text editor
-
-![Ip addresses](/images/5-Workshop/5.4-S3-onprem/route53-2.png)
-
-4. From the Route 53 menu, choose **Resolver** > **Rules**, and click **Create rule**:
-
-![Ip addresses](/images/5-Workshop/5.4-S3-onprem/route53-3.png)
-
-5. In the Create rule console:
-+ Name: myS3Rule
-+ Rule type: Forward
-+ Domain name: s3.us-east-1.amazonaws.com
-
-![create rule](/images/5-Workshop/5.4-S3-onprem/route53-4.png)
-
-+ VPC: VPC On-prem
-+ Outbound endpoint: VPCOnpremOutboundEndpoint
-
-![create rule](/images/5-Workshop/5.4-S3-onprem/route53-5.png)
-
-+ Target IP Addresses: Enter both IP addresses from your text editor (inbound endpoint addresses) and then click Submit
-
-![create rule](/images/5-Workshop/5.4-S3-onprem/route53-6.png)
-You have successfully created resolver forwarding rule. 
-
-![create rule](/images/5-Workshop/5.4-S3-onprem/route53-7.png)
-
-#### Test the on-premises DNS Simulation
-
-1. Connect to **Test-Interface-Endpoint EC2 instance** with **Session manager**
-
-![create rule](/images/5-Workshop/5.4-S3-onprem/test1.png)
-
-2. Test DNS resolution. The dig command will return the IP addresses assigned to the VPC Interface endpoint running in VPC Cloud (your IP's will be different): dig +short s3.us-east-1.amazonaws.com 
-
-{{% notice note %}}
-The IP addresses returned are the VPC endpoint IP addresses, NOT the Resolver IP addresses you pasted from your text editor. The IP addresses of the Resolver endpoint and the VPC endpoint look similar because they are all from the VPC Cloud CIDR block.
-{{% /notice %}}
-
-![create rule](/images/5-Workshop/5.4-S3-onprem/dig.png)
-
-
-3. Navigate to the VPC menu (Endpoints section), select the S3 Interface endpoint. Click the Subnets tab and verify that the IP addresses returned by Dig match the VPC endpoint:
-
-![create rule](/images/5-Workshop/5.4-S3-onprem/subnet.png)
-
-4. Return to your shell and use the AWS CLI to test listing your S3 buckets:
-
-```
-aws s3 ls --endpoint-url https://s3.us-east-1.amazonaws.com
+aws apigateway update-account \
+  --patch-operations op=replace,path=/cloudwatchRoleArn,value=$ROLE_ARN
 ```
 
-![create rule](/images/5-Workshop/5.4-S3-onprem/endpoint.png)
+---
 
-5. Terminate your Session Manager session:
+### Step 2: Configure Stage Logging
 
-![create rule](/images/5-Workshop/5.4-S3-onprem/terminal.png)
+```bash
+aws apigateway update-stage \
+  --rest-api-id $API_ID \
+  --stage-name prod \
+  --patch-operations \
+    op=replace,path=/accessLogSettings/destinationArn,value=arn:aws:logs:us-east-1:$(aws sts get-caller-identity --query Account --output text):log-group:tsl-api-access-logs \
+    op=replace,path=/accessLogSettings/format,value='$context.requestId $context.extendedRequestId $context.identity.sourceIp $context.requestTime $context.routeKey $context.status' \
+    op=replace,path=/*/*/logging/loglevel,value=INFO \
+    op=replace,path=/*/*/logging/dataTrace,value=true \
+    op=replace,path=/*/*/metrics/enabled,value=true
 
-In this section you created an Interface endpoint for Amazon S3. This endpoint can be reached from on-premises through Site-to-Site VPN or AWS Direct Connect. Route 53 Resolver outbound endpoints simulated forwarding DNS requests from on-premises to a Private Hosted Zone running the cloud. Route 53 inbound Endpoints recieved the resolution request and returned a response containing the IP addresses of the VPC interface endpoint. Using DNS to resolve the endpoint IP addresses provides high availability in-case of an Availability Zone outage.
+# Create log group
+aws logs create-log-group --log-group-name tsl-api-access-logs
+aws logs put-retention-policy \
+  --log-group-name tsl-api-access-logs \
+  --retention-in-days 7
+```
+
+---
+
+### Step 3: Create CloudWatch Dashboard
+
+```bash
+cat > dashboard.json << EOF
+{
+  "widgets": [
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          ["AWS/ApiGateway", "Count", {"stat": "Sum", "label": "Total Requests"}],
+          [".", "4XXError", {"stat": "Sum", "label": "4XX Errors"}],
+          [".", "5XXError", {"stat": "Sum", "label": "5XX Errors"}]
+        ],
+        "period": 300,
+        "stat": "Average",
+        "region": "us-east-1",
+        "title": "API Gateway Metrics",
+        "dimensions": {
+          "ApiName": ["tsl-signmap-api"]
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          ["AWS/ApiGateway", "Latency", {"stat": "Average"}],
+          ["...", {"stat": "p99"}]
+        ],
+        "period": 300,
+        "stat": "Average",
+        "region": "us-east-1",
+        "title": "API Latency",
+        "dimensions": {
+          "ApiName": ["tsl-signmap-api"]
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          ["AWS/Lambda", "Invocations", {"stat": "Sum"}],
+          [".", "Errors", {"stat": "Sum"}],
+          [".", "Duration", {"stat": "Average"}]
+        ],
+        "period": 300,
+        "stat": "Average",
+        "region": "us-east-1",
+        "title": "Lambda Metrics"
+      }
+    }
+  ]
+}
+EOF
+
+aws cloudwatch put-dashboard \
+  --dashboard-name TSL-SignMap-API \
+  --dashboard-body file://dashboard.json
+```
+
+---
+
+### Step 4: Setup Alarms
+
+```bash
+# High error rate alarm
+aws cloudwatch put-metric-alarm \
+  --alarm-name tsl-api-high-4xx \
+  --alarm-description "Alert when 4XX error rate is high" \
+  --metric-name 4XXError \
+  --namespace AWS/ApiGateway \
+  --statistic Sum \
+  --period 300 \
+  --threshold 10 \
+  --comparison-operator GreaterThanThreshold \
+  --evaluation-periods 2 \
+  --dimensions Name=ApiName,Value=tsl-signmap-api
+
+# High latency alarm
+aws cloudwatch put-metric-alarm \
+  --alarm-name tsl-api-high-latency \
+  --alarm-description "Alert when API latency is high" \
+  --metric-name Latency \
+  --namespace AWS/ApiGateway \
+  --statistic Average \
+  --period 300 \
+  --threshold 1000 \
+  --comparison-operator GreaterThanThreshold \
+  --evaluation-periods 2 \
+  --dimensions Name=ApiName,Value=tsl-signmap-api
+
+# Lambda errors
+aws cloudwatch put-metric-alarm \
+  --alarm-name tsl-lambda-errors \
+  --alarm-description "Alert on Lambda errors" \
+  --metric-name Errors \
+  --namespace AWS/Lambda \
+  --statistic Sum \
+  --period 300 \
+  --threshold 5 \
+  --comparison-operator GreaterThanThreshold \
+  --evaluation-periods 1
+```
+
+---
+
+### Step 5: Query Logs with CloudWatch Insights
+
+```bash
+# Example query: Top error endpoints
+aws logs start-query \
+  --log-group-name tsl-api-access-logs \
+  --start-time $(date -u -d '1 hour ago' +%s) \
+  --end-time $(date -u +%s) \
+  --query-string 'fields @timestamp, @message
+    | filter @message like /ERROR/
+    | stats count() by routeKey
+    | sort count desc
+    | limit 10'
+```
+
+**Query examples:**
+
+```sql
+-- Request latency distribution
+fields @timestamp, routeKey, status, @duration
+| filter status >= 200
+| stats avg(@duration), max(@duration), pct(@duration, 95) by routeKey
+
+-- Error analysis
+fields @timestamp, @message, routeKey, status
+| filter status >= 400
+| stats count() by status, routeKey
+
+-- User activity
+fields @timestamp, sourceIp, routeKey
+| stats count() by sourceIp
+| sort count desc
+| limit 20
+```
+
+---
+
+### Step 6: Enable X-Ray Tracing
+
+```bash
+# Enable tracing
+aws apigateway update-stage \
+  --rest-api-id $API_ID \
+  --stage-name prod \
+  --patch-operations op=replace,path=/tracingEnabled,value=true
+
+# Update Lambda functions
+for FUNC in sign-submit sign-query sign-vote; do
+  aws lambda update-function-configuration \
+    --function-name tsl-signmap-$FUNC \
+    --tracing-config Mode=Active
+done
+
+# Grant X-Ray permissions
+cat > xray-policy.json << 'EOF'
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Effect": "Allow",
+    "Action": [
+      "xray:PutTraceSegments",
+      "xray:PutTelemetryRecords"
+    ],
+    "Resource": "*"
+  }]
+}
+EOF
+
+aws iam put-role-policy \
+  --role-name tsl-signmap-lambda-role \
+  --policy-name XRayPolicy \
+  --policy-document file://xray-policy.json
+```
+
+---
+
+### Verification
+
+```bash
+# View recent logs
+aws logs tail tsl-api-access-logs --follow
+
+# Check metrics
+aws cloudwatch get-metric-statistics \
+  --namespace AWS/ApiGateway \
+  --metric-name Count \
+  --dimensions Name=ApiName,Value=tsl-signmap-api \
+  --start-time $(date -u -d '1 hour ago' --iso-8601=seconds) \
+  --end-time $(date -u --iso-8601=seconds) \
+  --period 300 \
+  --statistics Sum
+
+# View dashboard
+echo "Dashboard: https://console.aws.amazon.com/cloudwatch/home?region=us-east-1#dashboards:name=TSL-SignMap-API"
+
+# View X-Ray traces
+echo "X-Ray: https://console.aws.amazon.com/xray/home?region=us-east-1#/service-map"
+```
+
+---
+
+### Cost Estimate
+
+| Service | Usage | Cost/month |
+|---------|-------|------------|
+| CloudWatch Logs | 5GB ingestion, 7 days retention | $2.50 |
+| CloudWatch Metrics | 50 custom metrics | $0.30 |
+| CloudWatch Alarms | 3 alarms | $0.30 |
+| X-Ray | 1M requests traced | $5.00 |
+| **Total** | | **$8.10/month** |
+
+---
+
+### Complete!
+
+You've successfully setup Backend API with full monitoring and logging for TSL-SignMap! 🎉

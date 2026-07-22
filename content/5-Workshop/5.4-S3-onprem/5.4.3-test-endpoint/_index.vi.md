@@ -1,55 +1,270 @@
 ---
-title : "Kiểm tra Interface Endpoint"
-date : 2026
-weight : 3
-chapter : false
-pre : " <b> 5.4.3 </b> "
+title: "Setup API Gateway"
+date: 2026-07-10
+weight: 3
+chapter: false
 ---
 
-#### Lấy regional DNS name (tên DNS khu vực) của S3 interface endpoint
-1. Trong Amazon VPC menu, chọn Endpoints.
+### Tổng quan
 
-2. Click tên của endpoint chúng ta mới tạo ở mục 4.2: s3-interface-endpoint. Click details và lưu lại regional DNS name của endpoint (cái đầu tiên) vào text-editor của bạn để dùng ở các bước sau.
+Tạo REST API Gateway với Cognito Authorizer cho TSL-SignMap.
 
-![dns name](/images/5-Workshop/5.4-S3-onprem/dns.png)
+---
 
-#### Kết nối đến EC2 instance ở trong "VPC On-prem" (giả lập môi trường truyền thống)
+### Bước 1: Tạo REST API
 
-1. Đi đến **Session manager** bằng cách gõ "session manager" vào ô tìm kiếm
+```bash
+API_ID=$(aws apigateway create-rest-api \
+  --name tsl-signmap-api \
+  --description "TSL-SignMap Backend API" \
+  --endpoint-configuration types=REGIONAL \
+  --query 'id' \
+  --output text)
 
-2. Click **Start Session**, chọn EC2 instance có tên **Test-Interface-Endpoint**. EC2 instance này đang chạy trên "VPC On-prem" và sẽ được sử dụng để kiểm tra kết nối đến Amazon S3 thông qua Interface endpoint. Session Manager sẽ mở 1 browser tab mới với shell prompt: **sh-4.2 $**
+echo "API ID: $API_ID"
 
-![Start session](/images/5-Workshop/5.4-S3-onprem/start-session.png)
-
-3. Đi đến ssm-user's home directory với lệnh "cd ~"
-
-4. Tạo 1 file tên testfile2.xyz
+# Get root resource
+ROOT_ID=$(aws apigateway get-resources \
+  --rest-api-id $API_ID \
+  --query 'items[0].id' \
+  --output text)
 ```
-fallocate -l 1G testfile2.xyz
+
+---
+
+### Bước 2: Tạo Cognito Authorizer
+
+```bash
+# Get User Pool ARN
+USER_POOL_ARN=$(aws cognito-idp describe-user-pool \
+  --user-pool-id $USER_POOL_ID \
+  --query 'UserPool.Arn' \
+  --output text)
+
+# Create authorizer
+AUTHORIZER_ID=$(aws apigateway create-authorizer \
+  --rest-api-id $API_ID \
+  --name TSLCognitoAuthorizer \
+  --type COGNITO_USER_POOLS \
+  --provider-arns $USER_POOL_ARN \
+  --identity-source method.request.header.Authorization \
+  --query 'id' \
+  --output text)
+
+echo "Authorizer ID: $AUTHORIZER_ID"
 ```
 
-![user](/images/5-Workshop/5.4-S3-onprem/cli1.png)
+---
 
-5. Copy file vào S3 bucket mình tạo ở section 4.2
+### Bước 3: Tạo Resources & Methods
+
+#### /signs Resource
+
+```bash
+# Create /signs resource
+SIGNS_ID=$(aws apigateway create-resource \
+  --rest-api-id $API_ID \
+  --parent-id $ROOT_ID \
+  --path-part signs \
+  --query 'id' \
+  --output text)
+
+# POST /signs method
+aws apigateway put-method \
+  --rest-api-id $API_ID \
+  --resource-id $SIGNS_ID \
+  --http-method POST \
+  --authorization-type COGNITO_USER_POOLS \
+  --authorizer-id $AUTHORIZER_ID
+
+# Integration với Lambda
+aws apigateway put-integration \
+  --rest-api-id $API_ID \
+  --resource-id $SIGNS_ID \
+  --http-method POST \
+  --type AWS_PROXY \
+  --integration-http-method POST \
+  --uri "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:$(aws sts get-caller-identity --query Account --output text):function:tsl-signmap-sign-submit/invocations"
+
+# Grant permission
+aws lambda add-permission \
+  --function-name tsl-signmap-sign-submit \
+  --statement-id apigateway-post-signs \
+  --action lambda:InvokeFunction \
+  --principal apigateway.amazonaws.com \
+  --source-arn "arn:aws:execute-api:us-east-1:$(aws sts get-caller-identity --query Account --output text):$API_ID/*/POST/signs"
 ```
-aws s3 cp --endpoint-url https://bucket.<Regional-DNS-Name> testfile2.xyz s3://<your-bucket-name>
-``` 
-+ Câu lệnh này yêu cầu thông số --endpoint-url, bởi vì bạn cần sử dụng DNS name chỉ định cho endpoint để truy cập vào S3 thông qua Interface endpoint.
-+ Không lấy ' * ' khi copy/paste tên DNS khu vực.
-+ Cung cấp tên S3 bucket của bạn
 
-![copy file](/images/5-Workshop/5.4-S3-onprem/cli2.png)
+#### /signs/nearby Resource
 
-Bây giờ tệp đã được thêm vào bộ chứa S3 của bạn. Hãy kiểm tra bộ chứa S3 của bạn trong bước tiếp theo.
+```bash
+# Create /signs/nearby
+NEARBY_ID=$(aws apigateway create-resource \
+  --rest-api-id $API_ID \
+  --parent-id $SIGNS_ID \
+  --path-part nearby \
+  --query 'id' \
+  --output text)
 
-#### Kiểm tra Object trong S3 bucket
+# GET method
+aws apigateway put-method \
+  --rest-api-id $API_ID \
+  --resource-id $NEARBY_ID \
+  --http-method GET \
+  --authorization-type COGNITO_USER_POOLS \
+  --authorizer-id $AUTHORIZER_ID \
+  --request-parameters method.request.querystring.lat=true,method.request.querystring.lng=true,method.request.querystring.radius=false
 
-1. Đi đến S3 console
-2. Click Buckets
-3. Click tên bucket của bạn và bạn sẽ thấy testfile2.xyz đã được thêm vào s3 bucket của bạn
+# Integration
+aws apigateway put-integration \
+  --rest-api-id $API_ID \
+  --resource-id $NEARBY_ID \
+  --http-method GET \
+  --type AWS_PROXY \
+  --integration-http-method POST \
+  --uri "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:$(aws sts get-caller-identity --query Account --output text):function:tsl-signmap-sign-query/invocations"
 
-![check bucket](/images/5-Workshop/5.4-S3-onprem/check-bucket.png)
+aws lambda add-permission \
+  --function-name tsl-signmap-sign-query \
+  --statement-id apigateway-get-nearby \
+  --action lambda:InvokeFunction \
+  --principal apigateway.amazonaws.com
+```
 
+#### /votes Resource
 
+```bash
+# Create /votes
+VOTES_ID=$(aws apigateway create-resource \
+  --rest-api-id $API_ID \
+  --parent-id $ROOT_ID \
+  --path-part votes \
+  --query 'id' \
+  --output text)
 
+# POST method
+aws apigateway put-method \
+  --rest-api-id $API_ID \
+  --resource-id $VOTES_ID \
+  --http-method POST \
+  --authorization-type COGNITO_USER_POOLS \
+  --authorizer-id $AUTHORIZER_ID
 
+# Integration
+aws apigateway put-integration \
+  --rest-api-id $API_ID \
+  --resource-id $VOTES_ID \
+  --http-method POST \
+  --type AWS_PROXY \
+  --integration-http-method POST \
+  --uri "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:$(aws sts get-caller-identity --query Account --output text):function:tsl-signmap-sign-vote/invocations"
+
+aws lambda add-permission \
+  --function-name tsl-signmap-sign-vote \
+  --statement-id apigateway-post-votes \
+  --action lambda:InvokeFunction \
+  --principal apigateway.amazonaws.com
+```
+
+---
+
+### Bước 4: Deploy API
+
+```bash
+# Create deployment
+aws apigateway create-deployment \
+  --rest-api-id $API_ID \
+  --stage-name prod \
+  --description "Production deployment"
+
+# Get API URL
+API_URL="https://$API_ID.execute-api.us-east-1.amazonaws.com/prod"
+echo "API URL: $API_URL"
+```
+
+---
+
+### Bước 5: Enable CORS
+
+```bash
+# Enable CORS cho tất cả resources
+for RESOURCE_ID in $SIGNS_ID $NEARBY_ID $VOTES_ID; do
+  aws apigateway put-method \
+    --rest-api-id $API_ID \
+    --resource-id $RESOURCE_ID \
+    --http-method OPTIONS \
+    --authorization-type NONE
+
+  aws apigateway put-integration \
+    --rest-api-id $API_ID \
+    --resource-id $RESOURCE_ID \
+    --http-method OPTIONS \
+    --type MOCK \
+    --request-templates '{"application/json":"{\"statusCode\": 200}"}'
+
+  aws apigateway put-method-response \
+    --rest-api-id $API_ID \
+    --resource-id $RESOURCE_ID \
+    --http-method OPTIONS \
+    --status-code 200 \
+    --response-parameters \
+      method.response.header.Access-Control-Allow-Headers=true,\
+      method.response.header.Access-Control-Allow-Methods=true,\
+      method.response.header.Access-Control-Allow-Origin=true
+
+  aws apigateway put-integration-response \
+    --rest-api-id $API_ID \
+    --resource-id $RESOURCE_ID \
+    --http-method OPTIONS \
+    --status-code 200 \
+    --response-parameters \
+      method.response.header.Access-Control-Allow-Headers="'Content-Type,Authorization'",\
+      method.response.header.Access-Control-Allow-Methods="'GET,POST,PUT,DELETE,OPTIONS'",\
+      method.response.header.Access-Control-Allow-Origin="'*'"
+done
+
+# Redeploy
+aws apigateway create-deployment \
+  --rest-api-id $API_ID \
+  --stage-name prod
+```
+
+---
+
+### Testing
+
+```bash
+# Get token
+TOKEN=$(aws cognito-idp initiate-auth \
+  --client-id $CLIENT_ID \
+  --auth-flow USER_PASSWORD_AUTH \
+  --auth-parameters USERNAME=admin@tsl-signmap.com,PASSWORD=YourPassword \
+  --query 'AuthenticationResult.IdToken' \
+  --output text)
+
+# Test POST /signs
+curl -X POST $API_URL/signs \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "location": {"lat": 10.762622, "lng": 106.660172},
+    "signType": "stop",
+    "imageKey": "signs/test/image.jpg"
+  }'
+
+# Test GET /signs/nearby
+curl "$API_URL/signs/nearby?lat=10.76&lng=106.66&radius=5" \
+  -H "Authorization: Bearer $TOKEN"
+
+# Test POST /votes
+curl -X POST $API_URL/votes \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"signId": "sign_123", "voteType": "upvote"}'
+```
+
+---
+
+### Next Step
+
+Tiếp tục với [Configure API Monitoring](../5.4.4-dns-simulation/)

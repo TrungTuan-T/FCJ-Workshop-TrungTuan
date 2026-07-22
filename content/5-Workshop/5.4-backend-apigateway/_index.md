@@ -5,88 +5,231 @@ weight: 4
 chapter: false
 ---
 
-In this section, we will package and deploy the backend source code (Node.js) to **AWS Lambda** and establish **Amazon API Gateway** as a secure routing API portal integrated with a **Cognito Authorizer**.
+### Overview
 
----
-### Step 1: Create IAM Role for Lambda
+Deploy 7 Lambda functions and REST API Gateway with Cognito Authorizer for TSL-SignMap.
 
-Before deploying Lambda, we need an IAM Role to grant least-privilege permissions required by backend logic functions:
-- Read/Write data on the 5 **DynamoDB** tables.
-- Generate Presigned URLs and write objects to the **S3 Bucket**.
-- Push messages to the **SQS** queue.
-- Send notification emails via **Amazon SES**.
-- Write execution logs to **CloudWatch Logs**.
-
-You can create an IAM Role named `student-portal-lambda` through the IAM Console, or let the infrastructure script create it automatically.
-
-Once created, obtain the IAM Role ARN:
-```text
-LAMBDA_ROLE_ARN=arn:aws:iam::<ACCOUNT_ID>:role/student-portal-lambda
+**Architecture:**
+```
+Mobile App → API Gateway → Cognito Authorizer → Lambda → DynamoDB/S3/SQS
 ```
 
 ---
-### Step 2: Deploy Lambda Functions (Deploy Lambdas)
 
-The system consists of 21 Lambda functions running independent microservice APIs (CRUD for students, teachers, grades, document uploads, and an offline worker dispatching email notifications).
+### Lambda Functions
 
-To deploy all these functions, export the required configuration variables and execute the deployment script:
+| Function | Method | Endpoint | Purpose |
+|----------|--------|----------|---------|
+| sign-submit | POST | /signs | Submit new traffic sign |
+| sign-query | GET | /signs/nearby | Query signs by location |
+| sign-vote | POST | /votes | Vote on sign submission |
+| sign-approve | PUT | /signs/{id}/approve | Admin approve/reject |
+| user-profile | GET | /users/me | Get user profile & coins |
+| image-upload-url | GET | /signs/upload-url | Generate S3 presigned URL |
+| ai-detection | SQS | - | Process image with YOLO |
+
+---
+
+### Step 1: Create IAM Role
 
 ```bash
-# 1. Configure environment variables
-export LAMBDA_ROLE_ARN="arn:aws:iam::<ACCOUNT_ID>:role/student-portal-lambda"
-export DOCUMENTS_BUCKET="student-documents-<yourname>"
-export NOTIFICATION_QUEUE_URL="https://sqs.us-east-1.amazonaws.com/<ACCOUNT_ID>/student-notifications"
-export FROM_EMAIL="your-verified-email@example.com"
+cat > lambda-trust-policy.json << 'EOF'
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Effect": "Allow",
+    "Principal": { "Service": "lambda.amazonaws.com" },
+    "Action": "sts:AssumeRole"
+  }]
+}
+EOF
 
-# 2. Run the packaging and deployment script
-bash scripts/deploy-lambdas.sh us-east-1
+aws iam create-role \
+  --role-name tsl-signmap-lambda-role \
+  --assume-role-policy-document file://lambda-trust-policy.json
+
+aws iam attach-role-policy \
+  --role-name tsl-signmap-lambda-role \
+  --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+cat > lambda-permissions.json << 'EOF'
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Effect": "Allow",
+    "Action": [
+      "dynamodb:*",
+      "s3:*",
+      "sqs:*",
+      "sns:*",
+      "sagemaker:InvokeEndpoint",
+      "geo:*"
+    ],
+    "Resource": "*"
+  }]
+}
+EOF
+
+aws iam put-role-policy \
+  --role-name tsl-signmap-lambda-role \
+  --policy-name TSLPermissions \
+  --policy-document file://lambda-permissions.json
 ```
-
-> [!TIP]
-> Make sure the email set in `FROM_EMAIL` is **Verified** in **Amazon SES** (in Sandbox mode, both sender and recipient email addresses must be verified before email dispatch can succeed).
-
-![AWS Lambda Console](/images/5-Workshop/student-portal/lambda.png)
 
 ---
-### Step 3: Deploy & Configure API Gateway
 
-To expose the Lambda functions to the React Frontend, we will configure a REST API Gateway that routes HTTP endpoints to corresponding Lambda integrations.
-
-Execute the API Gateway deployment script:
+### Step 2: Deploy Lambda Functions
 
 ```bash
-# Export the User Pool ID recorded from the previous Cognito setup step
-export USER_POOL_ID="us-east-1_xxxxxxxxx"
+cd backend
 
-# Execute the API deployment script
-bash scripts/deploy-apigateway.sh us-east-1
+# Deploy with SAM
+sam build
+sam deploy \
+  --stack-name tsl-signmap-backend \
+  --parameter-overrides \
+    SignsTable=tsl-signmap-TrafficSigns-dev \
+    UsersTable=tsl-signmap-Users-dev \
+    VotesTable=tsl-signmap-Votes-dev \
+    ImagesBucket=tsl-signmap-images-$(aws sts get-caller-identity --query Account --output text) \
+  --capabilities CAPABILITY_IAM
 ```
 
-The script automatically sets up the following resources on AWS API Gateway:
-1. Creates a REST API named `student-portal-api`.
-2. Creates a **Cognito Authorizer** mapped to the designated Cognito User Pool.
-3. Provisions resources and methods:
-   - `/students`, `/students/{id}` -> Maps to Student CRUD Lambdas.
-   - `/teachers`, `/teachers/{id}` -> Maps to Teacher CRUD Lambdas.
-   - `/grades`, `/grades/{id}` -> Maps to Grades CRUD Lambdas.
-   - `/materials/upload-url`, `/materials/metadata` -> Maps to Learning Materials Lambdas.
-   - `/documents/upload-url`, `/documents/metadata` -> Maps to Student Documents Lambdas.
-4. Binds the Cognito Authorizer to endpoints requiring authentication (e.g., POST, PUT, DELETE).
-5. Enables **CORS** configurations globally.
-6. Deploys the API to a stage named `prod`.
-
-After execution, copy the **Invoke URL** output displayed on the terminal:
-```text
-https://xxxxxxxxxx.execute-api.us-east-1.amazonaws.com/prod
+**template.yaml (snippet):**
+```yaml
+Resources:
+  SignSubmitFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/sign-submit/
+      Handler: index.handler
+      Runtime: nodejs18.x
+      Timeout: 30
+      Environment:
+        Variables:
+          SIGNS_TABLE: !Ref SignsTable
+          USERS_TABLE: !Ref UsersTable
+          IMAGES_BUCKET: !Ref ImagesBucket
+          QUEUE_URL: !GetAtt ImageProcessingQueue.QueueUrl
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Path: /signs
+            Method: POST
+            Auth:
+              Authorizer: CognitoAuthorizer
 ```
-This is the API gateway endpoint that your React frontend application will call.
 
-Go to **API Gateway Console → APIs** to confirm the `student-portal-api` was created successfully:
-- **Protocol**: REST
-- **Endpoint type**: Regional
-- **Security policy**: TLS_1_0
+---
 
-![API Gateway Console - APIs List](/images/5-Workshop/student-portal/api-gateway-list.png)
+### Step 3: Deploy API Gateway
 
-![API Gateway Overview](/images/5-Workshop/student-portal/api-gateway-1.png)
-![API Gateway Details](/images/5-Workshop/student-portal/api-gateway-2.png)
+```bash
+API_ID=$(aws apigateway create-rest-api \
+  --name tsl-signmap-api \
+  --endpoint-configuration types=REGIONAL \
+  --query 'id' \
+  --output text)
+
+AUTHORIZER_ID=$(aws apigateway create-authorizer \
+  --rest-api-id $API_ID \
+  --name CognitoAuth \
+  --type COGNITO_USER_POOLS \
+  --provider-arns arn:aws:cognito-idp:us-east-1:$(aws sts get-caller-identity --query Account --output text):userpool/$USER_POOL_ID \
+  --identity-source method.request.header.Authorization \
+  --query 'id' \
+  --output text)
+
+aws apigateway create-deployment \
+  --rest-api-id $API_ID \
+  --stage-name prod
+
+echo "API: https://$API_ID.execute-api.us-east-1.amazonaws.com/prod"
+```
+
+---
+
+### API Endpoints
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | /signs | Yes | Submit new sign with image |
+| GET | /signs/nearby?lat=10.76&lng=106.66&radius=1 | Yes | Get signs within radius (km) |
+| GET | /signs/{signId} | Yes | Get sign details |
+| POST | /votes | Yes | Vote (upvote/downvote) on sign |
+| GET | /users/me | Yes | Get profile, coins, reputation |
+| GET | /signs/upload-url?filename=image.jpg | Yes | Get S3 presigned URL |
+| PUT | /signs/{signId}/approve | Admin | Approve/reject sign |
+
+---
+
+### Testing
+
+```bash
+# Login to get token
+TOKEN=$(aws cognito-idp initiate-auth \
+  --client-id $CLIENT_ID \
+  --auth-flow USER_PASSWORD_AUTH \
+  --auth-parameters USERNAME=admin@tsl-signmap.com,PASSWORD=YourPassword \
+  --query 'AuthenticationResult.IdToken' \
+  --output text)
+
+# Submit sign
+curl -X POST https://$API_ID.execute-api.us-east-1.amazonaws.com/prod/signs \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "location": {"lat": 10.762622, "lng": 106.660172},
+    "signType": "stop",
+    "imageKey": "signs/user123/image.jpg"
+  }'
+
+# Query nearby signs
+curl "https://$API_ID.execute-api.us-east-1.amazonaws.com/prod/signs/nearby?lat=10.76&lng=106.66&radius=2" \
+  -H "Authorization: Bearer $TOKEN"
+
+# Vote
+curl -X POST https://$API_ID.execute-api.us-east-1.amazonaws.com/prod/votes \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"signId": "sign_12345", "voteType": "upvote"}'
+```
+
+---
+
+### Monitoring
+
+```bash
+# CloudWatch Logs
+aws logs tail /aws/lambda/sign-submit --follow
+
+# API metrics
+aws cloudwatch get-metric-statistics \
+  --namespace AWS/ApiGateway \
+  --metric-name Count \
+  --dimensions Name=ApiName,Value=tsl-signmap-api \
+  --start-time 2026-01-01T00:00:00Z \
+  --end-time 2026-01-01T23:59:59Z \
+  --period 3600 \
+  --statistics Sum
+```
+
+---
+
+### Cost Estimate
+
+| Service | Usage | Cost/month |
+|---------|-------|------------|
+| Lambda | 1M invocations, 512MB, 2s | $10 |
+| API Gateway | 1M requests | $3.50 |
+| CloudWatch | 5GB logs | $2.50 |
+| **Total** | | **$16/month** |
+
+---
+
+### Next: Frontend
+
+```bash
+cd ../5.5-frontend-deployment/
+```

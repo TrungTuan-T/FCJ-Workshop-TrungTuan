@@ -1,118 +1,291 @@
 ---
-title : "Mô phỏng On-premises DNS "
-date : 2026
-weight : 4
-chapter : false
-pre : " <b> 5.4.4 </b> "
+title: "Monitoring & Logging"
+date: 2026-07-10
+weight: 4
+chapter: false
 ---
 
- AWS PrivateLink endpoint có một địa chỉ IP cố định trong từng AZ nơi chúng được triển khai, trong suốt thời gian tồn tại của endpoint (cho đến khi endpoint bị xóa). Các địa chỉ IP này được gắn vào Elastic network interface (ENI). AWS khuyến nghị sử dụng DNS để resolve địa chỉ IP cho endpoint để các ứng dụng downstream sử dụng địa chỉ IP mới nhất khi ENIs được thêm vào AZ mới hoặc bị xóa theo thời gian.
+### Tổng quan
 
-Trong phần này, bạn sẽ tạo một quy tắc chuyển tiếp (forwarding rule) để gửi các yêu cầu resolve DNS từ môi trường truyền thống (mô phỏng) đến Private Hosted Zone trên Route 53. Phần này tận dụng cơ sở hạ tầng do CloudFormation triển khai trong phần Chuẩn bị môi trường.
+Setup CloudWatch monitoring và logging cho TSL-SignMap API.
 
-#### Tạo DNS Alias Records cho Interface endpoint
-1. Click link để đi đến [Route 53 management console](https://us-east-1.console.aws.amazon.com/route53/v2/hostedzones?region=us-east-1#) (Hosted Zones section).  Mẫu CloudFormation mà bạn triển khai trong phần Chuẩn bị môi trường đã tạo Private Hosted Zone này. Nhấp vào tên của Private Hosted Zone, s3.us-east-1.amazonaws.com:
+---
 
-![hosted zone](/images/5-Workshop/5.4-S3-onprem/hosted-zone.png)
+### Bước 1: Enable CloudWatch Logs
 
-2. Tạo 1 record mới trong Private Hosted Zone:
+```bash
+# Create log role
+cat > api-logging-trust.json << 'EOF'
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Effect": "Allow",
+    "Principal": { "Service": "apigateway.amazonaws.com" },
+    "Action": "sts:AssumeRole"
+  }]
+}
+EOF
 
-![Create record](/images/5-Workshop/5.4-S3-onprem/create-record1.png)
+aws iam create-role \
+  --role-name APIGatewayLogsRole \
+  --assume-role-policy-document file://api-logging-trust.json
 
-+ Giữ nguyên Record name và record type
-+ Alias Button: click để enable
-+ Route traffic to: Alias to VPC Endpoint
-+ Region: US East (N. Virginia) [us-east-1]
-+ Chọn endpoint: Paste tên (Regional VPC Endpoint DNS) bạn đã lưu lại ở phần 4.3
+aws iam attach-role-policy \
+  --role-name APIGatewayLogsRole \
+  --policy-arn arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs
 
-![record1](/images/5-Workshop/5.4-S3-onprem/record1.png)
+# Set account role
+ROLE_ARN=$(aws iam get-role --role-name APIGatewayLogsRole --query 'Role.Arn' --output text)
 
-3. Click Add another record, và add 1 cái record thứ 2 sử dụng những thông số sau:
-+ Record name: *.
-+ Record type: giữ giá trị default (type A)
-+ Alias Button: Click để enable
-+ Route traffic to: Alias to VPC Endpoint
-+ Region: US East (N. Virginia) [us-east-1]
-+ Chọn endpoint: Paste tên (Regional VPC Endpoint DNS) bạn đã lưu lại ở phần 4.3
-+ Click **Create records** 
-
-![record 2](/images/5-Workshop/5.4-S3-onprem/record2.png)
-
-Record mới xuất hiện trên giao diện Route 53.
-
-![result](/images/5-Workshop/5.4-S3-onprem/result.png)
-
-#### Tạo một Resolver Forwarding Rule
-
-**Route 53 Resolver Forwarding Rules** cho phép bạn chuyển tiếp các DNS queries từ VPC của bạn đến các nguồn khác để resolve name. Bên ngoài môi trường workshop, bạn có thể sử dụng tính năng này để chuyển tiếp các DNS queries từ VPC của bạn đến các máy chủ DNS chạy trên on-premises. Trong phần này, bạn sẽ mô phỏng một on-premises conditional forwarder bằng cách tạo một forwarding rule để chuyển tiếp các DNS queries for Amazon S3 đến một Private Hosted Zone chạy trong "VPC Cloud" để resolve PrivateLink interface endpoint regional DNS name.
-
-1. Từ giao diện  **Route 53**, chọn **Inbound endpoints** trên thanh bên trái
-
-2. Trong giao diện **Inbound endpoint**, Chọn ID của Inbound endpoint.
-
-![Inbound endpoint](/images/5-Workshop/5.4-S3-onprem/route53-1.png)
-
-3. Sao chép 2 địa chỉ IP trong danh sách vào trình chỉnh sửa.
-
-![Ip addresses](/images/5-Workshop/5.4-S3-onprem/route53-2.png)
-
-4. Từ giao diện Route 53, chọn  **Resolver** > **Rules** và chọn **Create rule**
-
-![Ip addresses](/images/5-Workshop/5.4-S3-onprem/route53-3.png)
-
-5. Trong giao diện **Create rule**
-
-+ Name: myS3Rule
-+ Rule type: Forward
-+ Domain name: s3.us-east-1.amazonaws.com
-
-![create rule](/images/5-Workshop/5.4-S3-onprem/route53-4.png)
-
-+ VPC: VPC On-prem
-+ Outbound endpoint: VPCOnpremOutboundEndpoint
-
-![create rule](/images/5-Workshop/5.4-S3-onprem/route53-5.png)
-
-+ Target IP Addresses: điền cả hai IP bạn đã lưu trữ trên trình soạn thảo (inbound endpoint addresses) và sau đó chọn **Submit**
-
-![create rule](/images/5-Workshop/5.4-S3-onprem/route53-6.png)
-
-Bạn đã tạo thành công resolver forwarding rule. 
-
-![create rule](/images/5-Workshop/5.4-S3-onprem/route53-7.png)
-
-#### Kiểm tra on-premises DNS mô phỏng.
-
-1. Kết nối đến **Test-Interface-Endpoint EC2 instance** với **Session Manager**
-
-![create rule](/images/5-Workshop/5.4-S3-onprem/test1.png)
-
-2. Kiểm tra DNS resolution. Lệnh dig sẽ trả về địa chỉ IP được gán cho VPC endpoint interface đang chạy trên VPC (địa chỉ IP của bạn sẽ khác):
-
-```
-dig +short s3.us-east-1.amazonaws.com 
-```
-{{% notice note %}}
-Các địa chỉ IP được trả về là các địa chỉ IP VPC enpoint, KHÔNG phải là các địa chỉ IP Resolver mà bạn đã dán từ trình chỉnh sửa văn bản của mình. Các địa chỉ IP của  Resolver endpoint  và  VPC endpoin trông giống nhau vì chúng đều từ khối CIDR VPC Cloud.
-{{% /notice %}}
-
-![create rule](/images/5-Workshop/5.4-S3-onprem/dig.png)
-
-3. Truy cập vào menu VPC (phần Endpoints), chọn S3 interface endpoint. Nhấp vào tab Subnets và xác nhận rằng các địa chỉ IP được trả về bởi lệnh Dig khớp với VPC endpoint:
-
-![create rule](/images/5-Workshop/5.4-S3-onprem/subnet.png)
-
-4. Hãy quay lại shell của bạn và sử dụng AWS CLI để kiểm tra danh sách các bucket S3 của bạn:
-
-```
-aws s3 ls --endpoint-url https://s3.us-east-1.amazonaws.com
+aws apigateway update-account \
+  --patch-operations op=replace,path=/cloudwatchRoleArn,value=$ROLE_ARN
 ```
 
-![create rule](/images/5-Workshop/5.4-S3-onprem/endpoint.png)
+---
 
-5. Kết thúc phiên làm việc của Session Manager của bạn:
+### Bước 2: Configure Stage Logging
 
-![create rule](/images/5-Workshop/5.4-S3-onprem/terminal.png)
+```bash
+aws apigateway update-stage \
+  --rest-api-id $API_ID \
+  --stage-name prod \
+  --patch-operations \
+    op=replace,path=/accessLogSettings/destinationArn,value=arn:aws:logs:us-east-1:$(aws sts get-caller-identity --query Account --output text):log-group:tsl-api-access-logs \
+    op=replace,path=/accessLogSettings/format,value='$context.requestId $context.extendedRequestId $context.identity.sourceIp $context.requestTime $context.routeKey $context.status' \
+    op=replace,path=/*/*/logging/loglevel,value=INFO \
+    op=replace,path=/*/*/logging/dataTrace,value=true \
+    op=replace,path=/*/*/metrics/enabled,value=true
 
+# Create log group
+aws logs create-log-group --log-group-name tsl-api-access-logs
+aws logs put-retention-policy \
+  --log-group-name tsl-api-access-logs \
+  --retention-in-days 7
+```
 
-Trong phần này, bạn đã tạo một  **Interface Endpoint**  cho Amazon S3. Điểm cuối này có thể được truy cập từ on-premises thông qua Site-to-Site VPN hoặc AWS Direct Connect. Các điểm cuối Route 53 Resolver outbound giả lập chuyển tiếp các yêu cầu DNS từ on-premises đến một Private Hosted Zone đang chạy trên đám mây. Các điểm cuối Route 53 inbound nhận yêu cầu giải quyết và trả về một phản hồi chứa địa chỉ IP của  **Interface Endpoint**  VPC. Sử dụng DNS để giải quyết các địa chỉ IP của điểm cuối cung cấp tính sẵn sàng cao trong trường hợp một Availability Zone gặp sự cố.
+---
+
+### Bước 3: Create CloudWatch Dashboard
+
+```bash
+cat > dashboard.json << EOF
+{
+  "widgets": [
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          ["AWS/ApiGateway", "Count", {"stat": "Sum", "label": "Total Requests"}],
+          [".", "4XXError", {"stat": "Sum", "label": "4XX Errors"}],
+          [".", "5XXError", {"stat": "Sum", "label": "5XX Errors"}]
+        ],
+        "period": 300,
+        "stat": "Average",
+        "region": "us-east-1",
+        "title": "API Gateway Metrics",
+        "dimensions": {
+          "ApiName": ["tsl-signmap-api"]
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          ["AWS/ApiGateway", "Latency", {"stat": "Average"}],
+          ["...", {"stat": "p99"}]
+        ],
+        "period": 300,
+        "stat": "Average",
+        "region": "us-east-1",
+        "title": "API Latency",
+        "dimensions": {
+          "ApiName": ["tsl-signmap-api"]
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          ["AWS/Lambda", "Invocations", {"stat": "Sum"}],
+          [".", "Errors", {"stat": "Sum"}],
+          [".", "Duration", {"stat": "Average"}]
+        ],
+        "period": 300,
+        "stat": "Average",
+        "region": "us-east-1",
+        "title": "Lambda Metrics"
+      }
+    }
+  ]
+}
+EOF
+
+aws cloudwatch put-dashboard \
+  --dashboard-name TSL-SignMap-API \
+  --dashboard-body file://dashboard.json
+```
+
+---
+
+### Bước 4: Setup Alarms
+
+```bash
+# High error rate alarm
+aws cloudwatch put-metric-alarm \
+  --alarm-name tsl-api-high-4xx \
+  --alarm-description "Alert when 4XX error rate is high" \
+  --metric-name 4XXError \
+  --namespace AWS/ApiGateway \
+  --statistic Sum \
+  --period 300 \
+  --threshold 10 \
+  --comparison-operator GreaterThanThreshold \
+  --evaluation-periods 2 \
+  --dimensions Name=ApiName,Value=tsl-signmap-api
+
+# High latency alarm
+aws cloudwatch put-metric-alarm \
+  --alarm-name tsl-api-high-latency \
+  --alarm-description "Alert when API latency is high" \
+  --metric-name Latency \
+  --namespace AWS/ApiGateway \
+  --statistic Average \
+  --period 300 \
+  --threshold 1000 \
+  --comparison-operator GreaterThanThreshold \
+  --evaluation-periods 2 \
+  --dimensions Name=ApiName,Value=tsl-signmap-api
+
+# Lambda errors
+aws cloudwatch put-metric-alarm \
+  --alarm-name tsl-lambda-errors \
+  --alarm-description "Alert on Lambda errors" \
+  --metric-name Errors \
+  --namespace AWS/Lambda \
+  --statistic Sum \
+  --period 300 \
+  --threshold 5 \
+  --comparison-operator GreaterThanThreshold \
+  --evaluation-periods 1
+```
+
+---
+
+### Bước 5: Query Logs với CloudWatch Insights
+
+```bash
+# Query mẫu: Top error endpoints
+aws logs start-query \
+  --log-group-name tsl-api-access-logs \
+  --start-time $(date -u -d '1 hour ago' +%s) \
+  --end-time $(date -u +%s) \
+  --query-string 'fields @timestamp, @message
+    | filter @message like /ERROR/
+    | stats count() by routeKey
+    | sort count desc
+    | limit 10'
+```
+
+**Query examples:**
+
+```sql
+-- Request latency distribution
+fields @timestamp, routeKey, status, @duration
+| filter status >= 200
+| stats avg(@duration), max(@duration), pct(@duration, 95) by routeKey
+
+-- Error analysis
+fields @timestamp, @message, routeKey, status
+| filter status >= 400
+| stats count() by status, routeKey
+
+-- User activity
+fields @timestamp, sourceIp, routeKey
+| stats count() by sourceIp
+| sort count desc
+| limit 20
+```
+
+---
+
+### Bước 6: Enable X-Ray Tracing
+
+```bash
+# Enable tracing
+aws apigateway update-stage \
+  --rest-api-id $API_ID \
+  --stage-name prod \
+  --patch-operations op=replace,path=/tracingEnabled,value=true
+
+# Update Lambda functions
+for FUNC in sign-submit sign-query sign-vote; do
+  aws lambda update-function-configuration \
+    --function-name tsl-signmap-$FUNC \
+    --tracing-config Mode=Active
+done
+
+# Grant X-Ray permissions
+cat > xray-policy.json << 'EOF'
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Effect": "Allow",
+    "Action": [
+      "xray:PutTraceSegments",
+      "xray:PutTelemetryRecords"
+    ],
+    "Resource": "*"
+  }]
+}
+EOF
+
+aws iam put-role-policy \
+  --role-name tsl-signmap-lambda-role \
+  --policy-name XRayPolicy \
+  --policy-document file://xray-policy.json
+```
+
+---
+
+### Verification
+
+```bash
+# View recent logs
+aws logs tail tsl-api-access-logs --follow
+
+# Check metrics
+aws cloudwatch get-metric-statistics \
+  --namespace AWS/ApiGateway \
+  --metric-name Count \
+  --dimensions Name=ApiName,Value=tsl-signmap-api \
+  --start-time $(date -u -d '1 hour ago' --iso-8601=seconds) \
+  --end-time $(date -u --iso-8601=seconds) \
+  --period 300 \
+  --statistics Sum
+
+# View dashboard
+echo "Dashboard: https://console.aws.amazon.com/cloudwatch/home?region=us-east-1#dashboards:name=TSL-SignMap-API"
+
+# View X-Ray traces
+echo "X-Ray: https://console.aws.amazon.com/xray/home?region=us-east-1#/service-map"
+```
+
+---
+
+### Cost Estimate
+
+| Service | Usage | Cost/month |
+|---------|-------|------------|
+| CloudWatch Logs | 5GB ingestion, 7 days retention | $2.50 |
+| CloudWatch Metrics | 50 custom metrics | $0.30 |
+| CloudWatch Alarms | 3 alarms | $0.30 |
+| X-Ray | 1M requests traced | $5.00 |
+| **Total** | | **$8.10/month** |
+
+---
+
+### Hoàn thành!
+
+Bạn đã setup xong Backend API với đầy đủ monitoring và logging cho TSL-SignMap! 🎉

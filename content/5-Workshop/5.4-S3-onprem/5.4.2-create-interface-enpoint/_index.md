@@ -1,40 +1,307 @@
 ---
-title : "Create an S3 Interface endpoint"
-date : 2026
-weight : 2
-chapter : false
-pre : " <b> 5.4.2 </b> "
+title: "Deploy Lambda Functions"
+date: 2026-07-10
+weight: 2
+chapter: false
 ---
 
-In this section you will create and test an S3 interface endpoint using the simulated on-premises environment deployed as part of this workshop.
+### Overview
 
-1. Return to the Amazon VPC menu. In the navigation pane, choose Endpoints, then click Create Endpoint.
+Deploy 7 Lambda functions for TSL-SignMap backend.
 
-2. In Create endpoint console:
-+ Name the interface endpoint
-+ In Service category, choose **aws services** 
+---
 
-![name](/images/5-Workshop/5.4-S3-onprem/s3-interface-endpoint1.png)
+### Step 1: sign-submit Function
 
-3.  In the Search box, type S3 and press Enter. Select the endpoint named com.amazonaws.us-east-1.s3. Ensure that the Type column indicates Interface.
+```bash
+cd backend/functions/sign-submit
 
-![service](/images/5-Workshop/5.4-S3-onprem/s3-interface-endpoint2.png)
+cat > index.js << 'EOF'
+const AWS = require('aws-sdk');
+const { v4: uuidv4 } = require('uuid');
+const geohash = require('geohash');
 
-4. For VPC, select VPC Cloud from the drop-down.
-+ Expand **Additional settings** and ensure that Enable DNS name is *not* selected (we will use this in the next part of the workshop)
+const dynamodb = new AWS.DynamoDB.DocumentClient();
+const sqs = new AWS.SQS();
 
-![vpc](/images/5-Workshop/5.4-S3-onprem/s3-interface-endpoint3.png)
+exports.handler = async (event) => {
+  try {
+    const body = JSON.parse(event.body);
+    const { location, signType, imageKey } = body;
+    const userId = event.requestContext.authorizer.claims.sub;
+    
+    const signId = `sign_${uuidv4()}`;
+    const geoHash = geohash.encode(location.lat, location.lng, 8);
+    
+    const sign = {
+      SignID: signId,
+      UserID: userId,
+      Location: location,
+      GeoHash: geoHash,
+      SignType: signType,
+      ImageKey: imageKey,
+      Status: 'pending',
+      UpvoteCount: 0,
+      DownvoteCount: 0,
+      CreatedAt: new Date().toISOString()
+    };
+    
+    // Save to DynamoDB
+    await dynamodb.put({
+      TableName: process.env.SIGNS_TABLE,
+      Item: sign
+    }).promise();
+    
+    // Send to SQS for AI processing
+    await sqs.sendMessage({
+      QueueUrl: process.env.QUEUE_URL,
+      MessageBody: JSON.stringify({ signId, imageKey })
+    }).promise();
+    
+    // Award coins
+    await dynamodb.update({
+      TableName: process.env.USERS_TABLE,
+      Key: { UserID: userId },
+      UpdateExpression: 'ADD CoinBalance :coins',
+      ExpressionAttributeValues: {
+        ':coins': parseInt(process.env.COINS_PER_SUBMISSION || 10)
+      }
+    }).promise();
+    
+    return {
+      statusCode: 201,
+      headers: { 'Access-Control-Allow-Origin': '*' },
+      body: JSON.stringify({ signId, message: 'Sign submitted successfully' })
+    };
+  } catch (error) {
+    console.error(error);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: error.message })
+    };
+  }
+};
+EOF
 
-5. Select 2 subnets in the following AZs: us-east-1a and us-east-1b
+# Deploy
+zip -r function.zip index.js node_modules/
 
-![subnets](/images/5-Workshop/5.4-S3-onprem/s3-interface-endpoint4.png)
+ROLE_ARN=$(aws iam get-role --role-name tsl-signmap-lambda-role --query 'Role.Arn' --output text)
 
-6. For Security group, choose SGforS3Endpoint:
+aws lambda create-function \
+  --function-name tsl-signmap-sign-submit \
+  --runtime nodejs18.x \
+  --role $ROLE_ARN \
+  --handler index.handler \
+  --zip-file fileb://function.zip \
+  --timeout 30 \
+  --memory-size 512 \
+  --environment Variables="{
+    SIGNS_TABLE=tsl-signmap-TrafficSigns-dev,
+    USERS_TABLE=tsl-signmap-Users-dev,
+    QUEUE_URL=$QUEUE_URL,
+    COINS_PER_SUBMISSION=10
+  }"
+```
 
-![sg](/images/5-Workshop/5.4-S3-onprem/s3-interface-endpoint5.png)
+---
 
-7. Keep the default policy - full access and click Create endpoint
+### Step 2: sign-query Function
 
-![success](/images/5-Workshop/5.4-S3-onprem/s3-interface-endpoint-success.png)
+```bash
+cd ../sign-query
 
-Congratulation on successfully creating S3 interface endpoint. In the next step, we will test the interface endpoint.
+cat > index.js << 'EOF'
+const AWS = require('aws-sdk');
+const geohash = require('geohash');
+
+const dynamodb = new AWS.DynamoDB.DocumentClient();
+
+exports.handler = async (event) => {
+  try {
+    const { lat, lng, radius = 1 } = event.queryStringParameters;
+    
+    // Get geohash precision based on radius
+    const precision = radius <= 1 ? 7 : radius <= 5 ? 6 : 5;
+    const centerHash = geohash.encode(parseFloat(lat), parseFloat(lng), precision);
+    
+    // Query by geohash
+    const result = await dynamodb.query({
+      TableName: process.env.SIGNS_TABLE,
+      IndexName: 'GeoHash-index',
+      KeyConditionExpression: 'begins_with(GeoHash, :hash)',
+      ExpressionAttributeValues: {
+        ':hash': centerHash.substring(0, precision - 1)
+      }
+    }).promise();
+    
+    // Filter by actual distance
+    const signs = result.Items.filter(sign => {
+      const distance = calculateDistance(
+        parseFloat(lat), parseFloat(lng),
+        sign.Location.lat, sign.Location.lng
+      );
+      return distance <= parseFloat(radius);
+    });
+    
+    return {
+      statusCode: 200,
+      headers: { 'Access-Control-Allow-Origin': '*' },
+      body: JSON.stringify({ signs, count: signs.length })
+    };
+  } catch (error) {
+    console.error(error);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: error.message })
+    };
+  }
+};
+
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371; // Earth radius in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+EOF
+
+zip -r function.zip index.js node_modules/
+
+aws lambda create-function \
+  --function-name tsl-signmap-sign-query \
+  --runtime nodejs18.x \
+  --role $ROLE_ARN \
+  --handler index.handler \
+  --zip-file fileb://function.zip \
+  --timeout 15 \
+  --memory-size 256 \
+  --environment Variables="{SIGNS_TABLE=tsl-signmap-TrafficSigns-dev}"
+```
+
+---
+
+### Step 3: sign-vote Function
+
+```bash
+cd ../sign-vote
+
+cat > index.js << 'EOF'
+const AWS = require('aws-sdk');
+const { v4: uuidv4 } = require('uuid');
+
+const dynamodb = new AWS.DynamoDB.DocumentClient();
+
+exports.handler = async (event) => {
+  try {
+    const body = JSON.parse(event.body);
+    const { signId, voteType } = body; // upvote or downvote
+    const userId = event.requestContext.authorizer.claims.sub;
+    
+    // Check if already voted
+    const existingVote = await dynamodb.query({
+      TableName: process.env.VOTES_TABLE,
+      IndexName: 'SignID-index',
+      KeyConditionExpression: 'SignID = :sid',
+      FilterExpression: 'UserID = :uid',
+      ExpressionAttributeValues: {
+        ':sid': signId,
+        ':uid': userId
+      }
+    }).promise();
+    
+    if (existingVote.Items.length > 0) {
+      return {
+        statusCode: 409,
+        body: JSON.stringify({ error: 'Already voted on this sign' })
+      };
+    }
+    
+    // Record vote
+    await dynamodb.put({
+      TableName: process.env.VOTES_TABLE,
+      Item: {
+        VoteID: `vote_${uuidv4()}`,
+        SignID: signId,
+        UserID: userId,
+        VoteType: voteType,
+        CreatedAt: new Date().toISOString()
+      }
+    }).promise();
+    
+    // Update sign counts
+    const updateExpr = voteType === 'upvote' 
+      ? 'ADD UpvoteCount :val' 
+      : 'ADD DownvoteCount :val';
+      
+    await dynamodb.update({
+      TableName: process.env.SIGNS_TABLE,
+      Key: { SignID: signId },
+      UpdateExpression: updateExpr,
+      ExpressionAttributeValues: { ':val': 1 }
+    }).promise();
+    
+    // Award coins to voter
+    await dynamodb.update({
+      TableName: process.env.USERS_TABLE,
+      Key: { UserID: userId },
+      UpdateExpression: 'ADD CoinBalance :coins',
+      ExpressionAttributeValues: { ':coins': 1 }
+    }).promise();
+    
+    return {
+      statusCode: 200,
+      headers: { 'Access-Control-Allow-Origin': '*' },
+      body: JSON.stringify({ message: 'Vote recorded' })
+    };
+  } catch (error) {
+    console.error(error);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: error.message })
+    };
+  }
+};
+EOF
+
+zip -r function.zip index.js node_modules/
+
+aws lambda create-function \
+  --function-name tsl-signmap-sign-vote \
+  --runtime nodejs18.x \
+  --role $ROLE_ARN \
+  --handler index.handler \
+  --zip-file fileb://function.zip \
+  --timeout 15 \
+  --environment Variables="{
+    SIGNS_TABLE=tsl-signmap-TrafficSigns-dev,
+    USERS_TABLE=tsl-signmap-Users-dev,
+    VOTES_TABLE=tsl-signmap-Votes-dev
+  }"
+```
+
+---
+
+### Verification
+
+```bash
+# List functions
+aws lambda list-functions | grep tsl-signmap
+
+# Test sign-query
+aws lambda invoke \
+  --function-name tsl-signmap-sign-query \
+  --payload '{"queryStringParameters":{"lat":"10.76","lng":"106.66","radius":"5"}}' \
+  response.json
+
+cat response.json
+```
+
+---
+
+### Next Step
+
+Continue with [Setup API Gateway](../5.4.3-test-endpoint/)

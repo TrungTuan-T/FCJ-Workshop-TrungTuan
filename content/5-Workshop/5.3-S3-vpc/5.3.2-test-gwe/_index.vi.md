@@ -1,82 +1,364 @@
 ---
-title : "Kiểm tra Gateway Endpoint"
-date : 2026 
-weight : 2
-chapter : false
-pre : " <b> 5.3.2 </b> "
+title: "Kiểm tra Infrastructure"
+date: 2026
+weight: 2
+chapter: false
+pre: " <b> 5.3.2 </b> "
 ---
 
-#### Tạo S3 bucket
+### Xác minh các resources đã tạo
 
-1. Đi đến S3 management console
-2. Trong Bucket console, chọn **Create bucket**
+Sau khi deploy infrastructure, cần kiểm tra xem các resources đã được tạo thành công chưa.
 
-![Create bucket](/images/5-Workshop/5.3-S3-vpc/create-bucket.png)
+---
 
-3. Trong Create bucket console
-+ Đặt tên bucket: chọn 1 tên mà không bị trùng trong phạm vi toàn cầu (gợi ý: lab\<số-lab\>\<tên-bạn\>)
+### 1. Kiểm tra DynamoDB Tables
 
-![Bucket name](/images/5-Workshop/5.3-S3-vpc/bucket-name.png)
+```bash
+# List all tables
+aws dynamodb list-tables
 
+# Describe TrafficSigns table
+aws dynamodb describe-table \
+  --table-name TSL-TrafficSigns-dev \
+  --query 'Table.[TableName,TableStatus,ItemCount,GlobalSecondaryIndexes[*].IndexName]' \
+  --output table
 
-+ Giữ nguyên giá trị của các fields khác (default)
-+ Kéo chuột xuống và chọn **Create bucket**
+# Describe Users table
+aws dynamodb describe-table \
+  --table-name TSL-Users-dev \
+  --query 'Table.[TableName,TableStatus,ItemCount]' \
+  --output table
 
-![Create](/images/5-Workshop/5.3-S3-vpc/create-button.png)    
+# Describe Votes table
+aws dynamodb describe-table \
+  --table-name TSL-Votes-dev \
+  --query 'Table.[TableName,TableStatus,GlobalSecondaryIndexes[*].IndexName]' \
+  --output table
+```
 
-+ Tạo thành công S3 bucket
+**Expected output:**
+```
+TrafficSigns: ACTIVE, GSI: location-index, user-index
+Users: ACTIVE
+Votes: ACTIVE, GSI: sign-index, user-index
+```
 
-![Success](/images/5-Workshop/5.3-S3-vpc/bucket-success.png)
+---
 
-#### Kết nối với EC2 bằng session manager
+### 2. Kiểm tra S3 Buckets
 
-+ Trong workshop này, bạn sẽ dùng AWS Session Manager để kết nối đến các EC2 instances. Session Manager là 1 tính năng trong dịch vụ Systems Manager được quản lý hoàn toàn bởi AWS. System manager cho phép bạn quản lý Amazon EC2 instances và các máy ảo on-premises (VMs)thông qua 1 browser-based shell. Session Manager cung cấp khả năng quản lý phiên bản an toàn và có thể kiểm tra mà không cần mở cổng vào, duy trì máy chủ bastion host hoặc quản lý khóa SSH.
+```bash
+# List buckets
+aws s3 ls | grep tsl-signmap
 
-+ First cloud journey [Lab](https://000058.awsstudygroup.com/1-introduce/) để hiểu sâu hơn về Session manager.
+# Check images bucket configuration
+aws s3api get-bucket-versioning \
+  --bucket tsl-signmap-images-dev
 
-1. Trong AWS Management Console, gõ Systems Manager trong ô tìm kiếm và nhấn Enter:
+aws s3api get-bucket-cors \
+  --bucket tsl-signmap-images-dev
 
-![system manager](/images/5-Workshop/5.3-S3-vpc/sm.png)
+# Check bucket encryption
+aws s3api get-bucket-encryption \
+  --bucket tsl-signmap-images-dev
+```
 
-2. Từ **Systems Manager** menu, tìm **Node Management** ở thanh bên trái và chọn **Session Manager**:
+**Test upload image:**
+```bash
+# Create test image
+echo "test image data" > test-sign.jpg
 
-![system manager](/images/5-Workshop/5.3-S3-vpc/sm1.png)
+# Upload to S3
+aws s3 cp test-sign.jpg \
+  s3://tsl-signmap-images-dev/test/test-sign.jpg
 
-3. Click Start Session, và chọn EC2 instance tên **Test-Gateway-Endpoint**. 
-{{% notice info %}}
-Phiên bản EC2 này đã chạy trong "VPC cloud" và sẽ được dùng để kiểm tra khả năng kết nối với Amazon S3 thông qua điểm cuối Cổng mà bạn vừa tạo (s3-gwe). {{% /notice %}}
+# Verify upload
+aws s3 ls s3://tsl-signmap-images-dev/test/
 
-![Start session](/images/5-Workshop/5.3-S3-vpc/start-session.png)
+# Clean up test
+aws s3 rm s3://tsl-signmap-images-dev/test/test-sign.jpg
+```
 
-Session Manager sẽ mở browser tab mới với shell prompt: sh-4.2 $
+---
 
-![Success](/images/5-Workshop/5.3-S3-vpc/start-session-success.png)
+### 3. Kiểm tra Cognito User Pool
 
-Bạn đã bắt đầu phiên kết nối đến EC2 trong VPC Cloud thành công. Trong bước tiếp theo, chúng ta sẽ tạo một  S3 bucket và một tệp trong đó.
-#### Create a file and upload to s3 bucket
+```bash
+# Get User Pool details
+aws cognito-idp list-user-pools --max-results 10 \
+  | grep -A 5 "TSL-SignMap"
 
-1. Đổi về ssm-user's thư mục bằng lệnh "cd ~" 
+# Describe User Pool (replace POOL_ID)
+POOL_ID=$(aws cognito-idp list-user-pools --max-results 10 \
+  --query "UserPools[?Name=='TSL-SignMap-Users'].Id" \
+  --output text)
 
-![Change user's dir](/images/5-Workshop/5.3-S3-vpc/cli1.png)
+aws cognito-idp describe-user-pool \
+  --user-pool-id $POOL_ID \
+  --query 'UserPool.[Id,Name,Status,MfaConfiguration]' \
+  --output table
 
-2. Tạo 1 file để kiểm tra bằng lệnh "fallocate -l 1G testfile.xyz", 1 file tên "testfile.xyz" có kích thước 1GB sẽ được tạo.
+# Check User Pool Client
+aws cognito-idp list-user-pool-clients \
+  --user-pool-id $POOL_ID
+```
 
-![Create file](/images/5-Workshop/5.3-S3-vpc/cli-file.png)
+---
 
-3. Tải file mình vừa tạo lên S3 với lệnh "aws s3 cp testfile.xyz s3://your-bucket-name". Thay your-bucket-name bằng tên S3 bạn đã tạo.
+### 4. Kiểm tra SQS Queue
 
-![Uploaded](/images/5-Workshop/5.3-S3-vpc/uploaded.png)
+```bash
+# List queues
+aws sqs list-queues | grep tsl-signmap
 
-Bạn đã tải thành công tệp lên bộ chứa S3 của mình. Bây giờ bạn có thể kết thúc session.
+# Get queue URL
+QUEUE_URL=$(aws sqs list-queues \
+  --query "QueueUrls[?contains(@, 'tsl-signmap-ai-queue')]" \
+  --output text)
 
-#### Kiểm tra object trong S3 bucket
+# Get queue attributes
+aws sqs get-queue-attributes \
+  --queue-url $QUEUE_URL \
+  --attribute-names All \
+  --query 'Attributes.[ApproximateNumberOfMessages,VisibilityTimeout,MessageRetentionPeriod]' \
+  --output table
+```
 
-1. Đi đến S3 console.  
-2. Click tên s3 bucket của bạn
-3. Trong Bucket console, bạn sẽ thấy tệp bạn đã tải lên S3 bucket của mình
+---
 
-![Check S3](/images/5-Workshop/5.3-S3-vpc/check-s3-bucket.png)
+### 5. Kiểm tra Location Service
 
-#### Tóm tắt
+```bash
+# List place indexes
+aws location list-place-indexes
 
-Chúc mừng bạn đã hoàn thành truy cập S3 từ VPC. Trong phần này, bạn đã tạo gateway endpoint cho Amazon S3 và sử dụng AWS CLI để tải file lên. Quá trình tải lên hoạt động vì gateway endpoint cho phép giao tiếp với S3 mà không cần Internet gateway gắn vào "VPC Cloud". Điều này thể hiện chức năng của gateway endpoint như một đường dẫn an toàn đến S3 mà không cần đi qua pub    lic Internet.
+# Describe place index
+aws location describe-place-index \
+  --index-name TSL-SignMap-PlaceIndex \
+  --query '[IndexName,DataSource,Description]' \
+  --output table
+
+# Test geocoding (tìm tọa độ từ địa chỉ)
+aws location search-place-index-for-text \
+  --index-name TSL-SignMap-PlaceIndex \
+  --text "Ho Chi Minh City, Vietnam" \
+  --max-results 1 \
+  --query 'Results[0].[Place.Label,Place.Geometry.Point]' \
+  --output table
+```
+
+---
+
+### 6. Test Write dữ liệu mẫu vào DynamoDB
+
+#### Tạo test user
+```bash
+aws dynamodb put-item \
+  --table-name TSL-Users-dev \
+  --item '{
+    "userId": {"S": "test-user-001"},
+    "username": {"S": "testuser"},
+    "email": {"S": "test@example.com"},
+    "reputation": {"N": "100"},
+    "totalSubmissions": {"N": "0"},
+    "totalVotes": {"N": "0"},
+    "createdAt": {"S": "2026-07-22T10:00:00Z"}
+  }'
+
+# Verify
+aws dynamodb get-item \
+  --table-name TSL-Users-dev \
+  --key '{"userId": {"S": "test-user-001"}}' \
+  --query 'Item.[username.S,email.S,reputation.N]' \
+  --output table
+```
+
+#### Tạo test traffic sign
+```bash
+aws dynamodb put-item \
+  --table-name TSL-TrafficSigns-dev \
+  --item '{
+    "signId": {"S": "sign-001"},
+    "userId": {"S": "test-user-001"},
+    "latitude": {"N": "10.7769"},
+    "longitude": {"N": "106.7009"},
+    "signType": {"S": "STOP"},
+    "confidence": {"N": "0.95"},
+    "status": {"S": "pending"},
+    "voteCount": {"N": "0"},
+    "imageUrl": {"S": "s3://tsl-signmap-images-dev/test/sign-001.jpg"},
+    "createdAt": {"S": "2026-07-22T10:05:00Z"},
+    "geohash": {"S": "w679"}
+  }'
+
+# Verify
+aws dynamodb get-item \
+  --table-name TSL-TrafficSigns-dev \
+  --key '{"signId": {"S": "sign-001"}}' \
+  --query 'Item.[signType.S,latitude.N,longitude.N,status.S]' \
+  --output table
+```
+
+---
+
+### 7. Test Query theo Location (GSI)
+
+```bash
+# Query signs by geohash (location-based search)
+aws dynamodb query \
+  --table-name TSL-TrafficSigns-dev \
+  --index-name location-index \
+  --key-condition-expression "geohash = :gh" \
+  --expression-attribute-values '{":gh":{"S":"w679"}}' \
+  --query 'Items[*].[signId.S,signType.S,latitude.N,longitude.N]' \
+  --output table
+
+# Query signs by userId
+aws dynamodb query \
+  --table-name TSL-TrafficSigns-dev \
+  --index-name user-index \
+  --key-condition-expression "userId = :uid" \
+  --expression-attribute-values '{":uid":{"S":"test-user-001"}}' \
+  --query 'Items[*].[signId.S,signType.S,createdAt.S]' \
+  --output table
+```
+
+---
+
+### 8. Test SQS Message Flow
+
+```bash
+# Send test message to AI processing queue
+QUEUE_URL=$(aws sqs list-queues \
+  --query "QueueUrls[?contains(@, 'tsl-signmap-ai-queue')]" \
+  --output text)
+
+aws sqs send-message \
+  --queue-url $QUEUE_URL \
+  --message-body '{
+    "signId": "sign-001",
+    "imageUrl": "s3://tsl-signmap-images-dev/test/sign-001.jpg",
+    "userId": "test-user-001"
+  }'
+
+# Receive message (verify delivery)
+aws sqs receive-message \
+  --queue-url $QUEUE_URL \
+  --max-number-of-messages 1 \
+  --query 'Messages[0].[MessageId,Body]' \
+  --output table
+
+# Delete message (cleanup)
+RECEIPT_HANDLE=$(aws sqs receive-message \
+  --queue-url $QUEUE_URL \
+  --max-number-of-messages 1 \
+  --query 'Messages[0].ReceiptHandle' \
+  --output text)
+
+aws sqs delete-message \
+  --queue-url $QUEUE_URL \
+  --receipt-handle "$RECEIPT_HANDLE"
+```
+
+---
+
+### 9. Cleanup Test Data
+
+```bash
+# Delete test traffic sign
+aws dynamodb delete-item \
+  --table-name TSL-TrafficSigns-dev \
+  --key '{"signId": {"S": "sign-001"}}'
+
+# Delete test user
+aws dynamodb delete-item \
+  --table-name TSL-Users-dev \
+  --key '{"userId": {"S": "test-user-001"}}'
+
+# Verify deletion
+aws dynamodb scan \
+  --table-name TSL-Users-dev \
+  --filter-expression "userId = :uid" \
+  --expression-attribute-values '{":uid":{"S":"test-user-001"}}' \
+  --select COUNT
+```
+
+---
+
+### 10. Kiểm tra IAM Roles
+
+```bash
+# List Lambda execution roles
+aws iam list-roles \
+  | grep -i "tsl-signmap\|lambda"
+
+# Check specific role (example)
+aws iam get-role \
+  --role-name TSL-SignMap-Lambda-Role \
+  --query 'Role.[RoleName,Arn]' \
+  --output table
+
+# List attached policies
+aws iam list-attached-role-policies \
+  --role-name TSL-SignMap-Lambda-Role
+```
+
+---
+
+### Verification Checklist
+
+| Resource | Status | Command |
+|----------|--------|---------|
+| DynamoDB Tables (3) | ✓ | `aws dynamodb list-tables` |
+| S3 Buckets (2) | ✓ | `aws s3 ls \| grep tsl` |
+| Cognito User Pool | ✓ | `aws cognito-idp list-user-pools --max-results 10` |
+| SQS Queue | ✓ | `aws sqs list-queues` |
+| Location Place Index | ✓ | `aws location list-place-indexes` |
+| IAM Roles | ✓ | `aws iam list-roles \| grep tsl` |
+
+---
+
+### Troubleshooting
+
+**Error: Table not found**
+```bash
+# Check if CloudFormation stack deployed successfully
+aws cloudformation describe-stacks \
+  --stack-name tsl-signmap-infrastructure \
+  --query 'Stacks[0].StackStatus'
+
+# Check stack events for errors
+aws cloudformation describe-stack-events \
+  --stack-name tsl-signmap-infrastructure \
+  --max-items 10
+```
+
+**Error: Access Denied**
+```bash
+# Verify your IAM permissions
+aws sts get-caller-identity
+
+# Test specific service access
+aws dynamodb list-tables
+aws s3 ls
+aws sqs list-queues
+```
+
+**Error: Invalid region**
+```bash
+# Check configured region
+aws configure get region
+
+# Set correct region
+export AWS_DEFAULT_REGION=ap-southeast-1
+```
+
+---
+
+### Next Steps
+
+Infrastructure đã hoạt động! Tiếp theo:
+1. ✅ [Deploy Backend Lambda Functions](../../5.4-backend-apigateway/)
+2. ✅ [Setup API Gateway](../../5.4-backend-apigateway/)
+3. ✅ [Deploy Frontend Application](../../5.5-frontend-deployment/)

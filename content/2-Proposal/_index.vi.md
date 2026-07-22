@@ -6,207 +6,235 @@ chapter: false
 pre: " <b> 2. </b> "
 ---
 
-# AWS Student Management Portal
+# TSL-SignMap
 
-## Cổng thông tin quản lý sinh viên chạy trên hạ tầng AWS
+## Hệ thống quản lý vị trí biển báo giao thông dựa trên cộng đồng và AI
 
 ### 1. Tóm tắt điều hành
 
-Hệ thống được thiết kế theo mô hình đám mây hiện đại, sử dụng kiến trúc không máy chủ (Serverless), tích hợp quy trình tự động hóa và đảm bảo an toàn thông tin đa lớp.
+TSL-SignMap là hệ thống quản lý biển báo giao thông kết hợp crowdsourcing, AI detection (YOLO), và bản đồ thời gian thực. Hệ thống sử dụng kiến trúc serverless trên AWS, tích hợp mobile app và OpenStreetMap để tạo cơ sở dữ liệu biển báo chính xác, cập nhật liên tục.
 
 ### 2. Tuyên bố vấn đề
 
- _Vấn đề hiện tại_
+**Vấn đề hiện tại**
 
-  * Các kiến trúc ứng dụng cũ, truyền thống thường gặp khó khăn trong việc phát hành sản phẩm, khiến thời gian release bị kéo dài, dẫn đến bỏ lỡ cơ hội kinh doanh và giảm doanh thu.
-  * Hệ thống hoạt động kém hiệu quả khi lượng truy cập đột biến (ví dụ: mùa đăng ký tín chỉ, mùa nộp hồ sơ sinh viên), gây tốn kém chi phí duy trì server 24/7 nhưng hiệu suất vẫn không tối ưu.
-  * Quy trình vận hành, deploy mã nguồn thủ công dễ xảy ra sai sót của con người (human error). Đồng thời, việc không tuân thủ nghiêm ngặt các quy định bảo mật hoặc quản lý quyền truy cập lỏng lẻo dễ làm mất an ninh thông tin và suy giảm uy tín hệ thống.
+| Vấn đề | Mô tả |
+|--------|-------|
+| Dữ liệu biển báo lỗi thời | Biển báo thay đổi nhưng bản đồ không cập nhật kịp thời |
+| Chi phí khảo sát cao | Khảo sát thủ công tốn thời gian và nhân lực |
+| Thiếu tính cộng đồng | Người dân không có kênh đóng góp thông tin |
+| Độ chính xác thấp | Xác minh biển báo thủ công dễ sai sót |
 
+**Giải pháp TSL-SignMap**
 
+| Tính năng | Công nghệ |
+|-----------|-----------|
+| Crowdsourcing | Mobile app cho phép người dùng báo cáo biển báo |
+| AI Detection | YOLO model tự động phát hiện và phân loại biển báo |
+| Voting System | Cộng đồng xác minh tính chính xác của đóng góp |
+| Real-time Map | Tích hợp OpenStreetMap hiển thị biển báo cập nhật |
+| Reward System | TSL Coin khuyến khích người dùng tham gia |
 
-_Giải pháp_
+**Lợi ích**
 
-  * Xây dựng hệ thống AWS Student Management Portal chuyển đổi hoàn toàn sang kiến trúc hiện đại: Tách biệt hệ thống thành cấu trúc Modular với các dịch vụ Microservices độc lập kết hợp mô hình không máy chủ Serverless (AWS Lambda, DynamoDB, API Gateway).
-  * Áp dụng kiến trúc hướng sự kiện (Event-Driven Architecture) sử dụng Amazon SQS để xử lý các tác vụ bất đồng bộ và giao tiếp linh hoạt giữa các dịch vụ.
-  * Bảo mật đa lớp từ tầng mạng (WAF, CloudFront), tầng định danh (Cognito) cho đến tầng dữ liệu (AWS KMS, IAM Role).
-  * Tự động hóa hoàn toàn chu kỳ phát triển phần mềm (SDLC) bằng đường ống CI/CD tự động (CodeCommit → CodePipeline → CodeBuild).
-
-
-
-_Lợi ích và hoàn vốn đầu tư (ROI)_
-
-  * Tối ưu hiệu năng và chi phí (Cost & Performance Efficiency): Cơ chế Serverless loại bỏ hoàn toàn việc quản lý hạ tầng phần cứng. Hệ thống tự động mở rộng (Auto-scaling) ngay lập tức khi lượng truy cập tăng và áp dụng mô hình thanh toán theo giá trị thực tế (Pay-for-value) – chỉ tính tiền khi mã nguồn chạy.
-
-  * Tính linh hoạt và khả năng chống chịu lỗi (Resilience & Agility): Nhờ cơ chế giao tiếp bất đồng bộ qua Queue, hệ thống có tính Loose-coupling cao, giúp giảm tải cho backend và đảm bảo hệ thống không bị sập khi quá tải cục bộ.
-
-  * An toàn thông tin tuyệt đối: Giảm thiểu rủi ro rò rỉ dữ liệu nhờ cơ chế mã hóa lưu trữ tự động, phân quyền tối thiểu (IAM Role) và thiết lập chính sách sao lưu/khôi phục định kỳ (AWS Backup).
-
-  * Tăng tốc độ phát triển sản phẩm: Quy trình CI/CD tự động hóa việc build và deploy giúp giảm thiểu sai sót thủ công, rút ngắn thời gian phát hành phiên bản mới.
+| Lợi ích | Chi tiết |
+|---------|----------|
+| Dữ liệu cập nhật | Biển báo được cập nhật liên tục từ cộng đồng |
+| Chi phí thấp | Serverless giảm chi phí infrastructure |
+| Độ chính xác cao | AI + voting system đảm bảo chất lượng dữ liệu |
+| Khả năng mở rộng | Auto-scaling xử lý traffic tăng đột biến |
+| Bảo mật | Multi-layer security bảo vệ dữ liệu người dùng |
 
 
 
 
 ### 3. Kiến trúc giải pháp
 
-  * Hệ thống AWS Student Management Portal được xây dựng dựa trên kiến trúc Điện toán đám mây hiện đại (Cloud-Native Architecture), kết hợp chặt chẽ giữa mô hình Không máy chủ (Serverless) và cơ chế Hướng sự kiện (Event-Driven). Toàn bộ kiến trúc được phân tách thành các phân lớp chức năng độc lập, đảm bảo khả năng tự động mở rộng, tối ưu chi phí và bảo mật đa tầng.
+TSL-SignMap sử dụng kiến trúc serverless, event-driven trên AWS, kết hợp mobile app và AI model để xây dựng hệ thống quản lý biển báo thời gian thực.
 
+![TSL-SignMap Architecture](/images/2-Proposal/aws.jpg)
 
+**Dịch vụ AWS sử dụng**
 
-![AWS Student Management Portal](/images/2-Proposal/aws.jpg)
+| Dịch vụ | Vai trò |
+|---------|---------|
+| Amazon Cognito | Xác thực người dùng, quản lý JWT token |
+| Amazon API Gateway | REST API endpoint cho mobile app |
+| AWS Lambda | Xử lý logic backend, AI inference |
+| Amazon DynamoDB | Lưu trữ thông tin biển báo, user data |
+| Amazon S3 | Lưu ảnh biển báo, YOLO model |
+| Amazon SageMaker | Training và hosting YOLO model |
+| Amazon Location Service | Xử lý geospatial data, tích hợp bản đồ |
+| Amazon SQS | Queue xử lý ảnh bất đồng bộ |
+| Amazon SNS | Thông báo cho người dùng |
+| Amazon CloudWatch | Monitoring và logging |
+| AWS Amplify | Deploy mobile app backend |
 
-_Dịch vụ AWS sử dụng_
+**Thiết kế thành phần**
 
-  *  _Amazon Route 53:́́́́_ Dịch vụ quản lý và phân giải tên miền (DNS).
-  * _Amazon CloudFront:_ Mạng lưới phân phối nội dung toàn cầu (CDN) giúp tăng tốc độ tải trang giao diện và lưu bộ nhớ đệm .
-  * _AWS WAF:_ Tường lửa bảo vệ ứng dụng web trước các cuộc tấn công mạng độc hại.
-  * _Amazon S3:_ Lưu trữ mã nguồn tĩnh frontend (Website hosting) và lưu trữ dữ liệu hồ sơ tải lên của sinh viên.
-  * _Amazon Cognito:_ Dịch vụ quản lý định danh, xử lý xác thực đăng ký/đăng nhập và cấp mã bảo mật JWT Token cho người dùng.
-  * _Amazon API Gateway:_ Cửa ngõ tiếp nhận, điều phối, định tuyến các yêu cầu API và thực hiện rate limiting.
-  * _AWS Lambda:_ Dịch vụ tính toán Serverless (FaaS), trực tiếp thực thi mã nguồn xử lý logic backend một cách tự động theo sự kiện.
-  * _Amazon DynamoDB:_ Cơ sở dữ liệu NoSQL tốc độ cao, độ trễ mili-giây, lưu trữ thông tin chi tiết của sinh viên.
-  * _Amazon SQS:_ Hàng đợi thông điệp, hỗ trợ tiếp nhận và xử lý các tác vụ bất đồng bộ.
-  * _Amazon SES:_ Dịch vụ gửi email tự động (gửi thông báo đến sinh viên/quản trị viên).
-  * _Amazon CloudWatch:_ Công cụ giám sát hiệu năng hệ thống, thu thập log, metrics và thiết lập cảnh báo tự động (Alarm).
-  * _Amazon SNS:_ Dịch vụ thông báo dạng Publish/Subscribe, dùng để gửi tin nhắn cảnh báo hệ thống đến đội ngũ quản trị.
-  * _AWS KMS:_ Quản lý và khởi tạo khóa mã hóa dữ liệu lưu trữ tại chỗ.
-  * _AWS Backup:_ Dịch vụ tập trung quản lý tự động việc sao lưu và khôi phục dữ liệu định kỳ theo chính sách.
-  * _AWS CodeCommit:_ Kho lưu trữ mã nguồn bảo mật dựa trên Git.
-  * _AWS CodeBuild:_ Dịch vụ biên dịch mã nguồn, chạy kiểm thử và đóng gói sản phẩm tự động.
-  * _AWS CodePipeline:_ Dịch vụ điều phối chuỗi quy trình triển khai tự động liên tục (CI/CD).
-
-
-
-_Thiết kế thành phần_
-
-  *  _Amazon Route 53:_ Cấu hình A Record (Alias) trỏ tên miền về CloudFront.
-
-  * _Amazon CloudFront:_ Tạo Distribution, cấu hình HTTPS và chính sách Cache tối ưu cho file tĩnh.
-
-  * _AWS WAF:_ Gắn Web ACL vào CloudFront, bật các bộ quy tắc chống SQL Injection, XSS và giới hạn tần suất gọi API (Rate-limiting).
-
-  * _Amazon S3 (Frontend):_ Bật Static Website Hosting, cấu hình OAC (Origin Access Control) chỉ cho phép CloudFront truy cập, chặn hoàn toàn truy cập công khai.
-
-  * _Amazon S3 (Data Storage):_ Bật Versioning quản lý phiên bản, cấu hình CORS để tải tệp lên an toàn bằng Presigned URL.
-
-  * _Amazon Cognito:_ Khởi tạo User Pool quản lý tài khoản sinh viên và cấp mã bảo mật JWT Token.
-
-  * _Amazon API Gateway:_ Thiết lập các Endpoint dạng REST API, tích hợp Cognito Authorizer để chặn/cho phép request.
-
-  * _AWS Lambda:_ Chạy code backend (Node.js/Python), tự động co giãn hiệu năng theo lượng event kích hoạt.
-
-  * _Amazon DynamoDB:_ Cơ sở dữ liệu cấu hình chế độ On-Demand (tự động mở rộng sức chứa), đặt Khóa chính là StudentID.
-
-  * _Amazon SQS & SES:_ Cấu hình hàng đợi Standard/FIFO xử lý bất đồng bộ và gọi API SES gửi email tự động đã xác thực cấu hình DKIM/SPF.
-
-  * _CloudWatch & SNS:_ Tạo các Metric Filters lọc lỗi hệ thống, cấu hình Alarm gửi tin nhắn cảnh báo tức thời qua SNS Topic.
-
-  * _AWS KMS & Backup:_ Mã hóa dữ liệu lưu trữ tự động (Data-at-rest) và đặt chính sách sao lưu định kỳ, sẵn sàng khôi phục thảm họa.
-
-  * _CI/CD (Code Suite):_ Tự động hóa quy trình build và deploy liên tục .
+| Component | Chi tiết kỹ thuật |
+|-----------|-------------------|
+| Mobile App | React Native/Flutter kết nối API Gateway |
+| Authentication | Cognito User Pool với MFA |
+| API Layer | API Gateway + Lambda authorizer |
+| AI Detection | Lambda invoke SageMaker endpoint (YOLO) |
+| Database | DynamoDB: SignID (PK), Location (GSI) |
+| Image Storage | S3 với presigned URL upload |
+| Voting System | Lambda + DynamoDB transactions |
+| Coin System | DynamoDB table tracks user balance |
+| Map Integration | Location Service + OpenStreetMap API |
+| Notifications | SNS push notifications via mobile app |
 
 
 
 
 ### 4. Triển khai kỹ thuật
 
- _Yêu cầu kỹ thuật_
+**Yêu cầu kỹ thuật**
 
-  *  _Compute & Logic Layer:_ AWS Lambda (chạy backend xử lý bất đồng bộ và logic quản lý), Amazon API Gateway.
+| Layer | AWS Services |
+|-------|--------------|
+| Mobile App | AWS Amplify, React Native/Flutter |
+| Authentication | Amazon Cognito User Pool |
+| API Gateway | Amazon API Gateway REST API |
+| Compute | AWS Lambda (Python/Node.js) |
+| AI/ML | Amazon SageMaker (YOLO model) |
+| Database | Amazon DynamoDB (On-Demand) |
+| Storage | Amazon S3 (images, models) |
+| Geospatial | Amazon Location Service |
+| Queue | Amazon SQS (image processing) |
+| Notifications | Amazon SNS (push notifications) |
+| Monitoring | Amazon CloudWatch |
+| Security | AWS KMS, IAM Roles |
 
-  * _Storage & Database:_ Amazon DynamoDB (Cơ sở dữ liệu lưu trữ thông tin sinh viên), Amazon S3 (Lưu trữ frontend tĩnh và tệp tài liệu sinh viên).
+**Data Model (DynamoDB)**
 
-  * _Security & Identity:_ Amazon Cognito, IAM Roles, AWS KMS (Mã hóa khóa bảo mật).
+```
+Table: TrafficSigns
+- SignID (PK)
+- Location (lat, long) - GSI
+- SignType (warning, regulatory, information)
+- ImageURL (S3 path)
+- Status (pending, approved, rejected)
+- SubmittedBy (UserID)
+- Votes (upvotes, downvotes)
+- CreatedAt, UpdatedAt
 
-  * _Observability:_ Amazon CloudWatch (Log & Metrics), CloudWatch Alarms, Amazon SNS (Hệ thống điều phối cảnh báo).
+Table: Users
+- UserID (PK)
+- Email
+- CoinBalance
+- ReputationScore
+- SubmissionsCount
+- VotesCount
 
-  * _Data Protection & Resiliency:_ AWS Backup (Chính sách sao lưu và khôi phục thảm họa định kỳ).
-
-  * _CI/CD Automation:_ AWS CodeCommit (Quản lý mã nguồn), AWS CodeBuild (Đóng gói/Kiểm thử), AWS CodePipeline (Tự động hóa deploy liên tục).
+Table: Votes
+- VoteID (PK)
+- SignID-UserID (GSI)
+- VoteType (upvote, downvote)
+- Weight (based on reputation)
+- Timestamp
+```
 
 
 
 
 ### 5. Lộ trình & Mốc triển khai
 
-  *  _Giai đoạn 1:_ Thiết lập hạ tầng và Cấu hình bảo mật dữ liệu
-
-
-
-Triển khai các dịch vụ cốt lõi và thiết lập cơ chế an toàn thông tin đa lớp.
-
-Sử dụng AWS KMS để thực hiện mã hóa toàn bộ dữ liệu tại chỗ (Data-at-rest) lưu trữ trên Amazon DynamoDB và Amazon S3.
-
-Thiết lập hệ thống IAM Role nghiêm ngặt theo nguyên tắc đặc quyền tối thiểu (Least Privilege), đảm bảo mỗi dịch vụ chỉ có quyền truy cập vừa đủ vào tài nguyên cần thiết.
-
-  * _Giai đoạn 2:_ Cấu hình hệ thống giám sát và Vận hành
-
-
-
-Tích hợp Amazon CloudWatch để thu thập tập trung dữ liệu log, chỉ số hiệu năng (metrics) từ AWS Lambda và API Gateway.
-
-Thiết lập các CloudWatch Alarms theo dõi ngưỡng lỗi (như lỗi Lambda crash hoặc API Gateway quá tải).
-
-Kết nối hệ thống báo động với Amazon SNS để tự động gửi cảnh báo tức thời tới đội ngũ kỹ sư quản trị ngay khi phát hiện dấu hiệu bất thường.
-
-  * _Giai đoạn 3:_ Tự động hóa đường ống triển khai (CI/CD Pipeline)
-
-
-
-Thiết lập kho lưu trữ mã nguồn an toàn dựa trên Git thông qua AWS CodeCommit.
-
-Sử dụng AWS CodeBuild để tự động hóa quy trình biên dịch, chạy các bài kiểm thử và đóng gói sản phẩm.
-
-Cấu hình luồng điều phối liên tục AWS CodePipeline giúp tự động cập nhật Frontend lên Amazon S3 và triển khai Backend lên AWS Lambda mỗi khi có cập nhật mã nguồn mới.
-
-  * _Giai đoạn 4:_ Thiết lập cơ chế dự phòng và Sao lưu định kỳ
-
-
-
-Cấu hình dịch vụ AWS Backup tập trung để quản lý toàn diện các bản sao lưu dữ liệu cho DynamoDB và S3.
-
-Cài đặt chính sách lưu trữ và khôi phục định kỳ, sẵn sàng ứng phó trong các tình huống khẩn cấp hoặc sự cố thảm họa dữ liệu.
+| Giai đoạn | Công việc | Thời gian |
+|-----------|-----------|-----------|
+| **Phase 1: Infrastructure** | Setup AWS account, VPC, IAM roles | 1 week |
+| | Deploy Cognito User Pool | |
+| | Setup DynamoDB tables | |
+| | Configure S3 buckets | |
+| **Phase 2: Backend API** | Create Lambda functions | 2 weeks |
+| | Setup API Gateway endpoints | |
+| | Implement authentication flow | |
+| | Deploy SQS queues | |
+| **Phase 3: AI Integration** | Train YOLO model on traffic signs | 2 weeks |
+| | Deploy model to SageMaker | |
+| | Create Lambda for AI inference | |
+| | Test detection accuracy | |
+| **Phase 4: Mobile App** | Develop React Native app | 3 weeks |
+| | Integrate with API Gateway | |
+| | Implement map view (Location Service) | |
+| | Add camera and image upload | |
+| **Phase 5: Voting & Coins** | Implement voting system | 1 week |
+| | Create coin transaction logic | |
+| | Add reputation calculation | |
+| **Phase 6: Testing** | Integration testing | 1 week |
+| | Load testing with traffic simulation | |
+| | Security audit | |
+| **Phase 7: Launch** | Deploy to production | 1 week |
+| | Monitor with CloudWatch | |
+| | Gather user feedback | |
 
 ### 6. Ước tính ngân sách
 
- _Chi phí hạ tầng_
+**Chi phí hạ tầng AWS (ước tính/tháng)**
 
-Dịch vụ AWS| Mức chi phí ước tính/tháng  
----|---  
-Amazon S3 (frontend + tài liệu)| $3–$8  
-Amazon CloudFront| $5–$15  
-Amazon API Gateway| $3–$8  
-AWS Lambda| $2–$10  
-Amazon DynamoDB| $10–$25  
-Amazon Cognito| $0–$10  
-Amazon SQS| $0–$2  
-Amazon SES| $0–$10  
-Amazon CloudWatch Logs| $2–$8  
-  
-**Tổng ước tính:** khoảng $25–$96/tháng, tùy mức truy cập, dung lượng lưu trữ và số lượng email gửi.
+| Dịch vụ AWS | Chi phí ước tính | Ghi chú |
+|-------------|------------------|---------|
+| Amazon Cognito | $0–$5 | Miễn phí 50k MAU đầu tiên |
+| Amazon API Gateway | $3–$10 | ~1M requests/tháng |
+| AWS Lambda | $5–$20 | Compute + AI inference |
+| Amazon DynamoDB | $10–$30 | On-Demand mode |
+| Amazon S3 | $5–$15 | Image storage + model |
+| Amazon SageMaker | $20–$50 | YOLO endpoint hosting |
+| Amazon Location Service | $5–$15 | Geospatial queries |
+| Amazon SQS | $0–$3 | Queue processing |
+| Amazon SNS | $0–$5 | Push notifications |
+| Amazon CloudWatch | $3–$10 | Logs + metrics |
+| **Tổng** | **$51–$163** | Tùy số người dùng và traffic |
+
+**Mô hình kinh tế TSL Coin**
+
+| Hành động | Coin |
+|-----------|------|
+| Đăng ký mới | +20 Coin |
+| Gửi đóng góp biển báo | -5 Coin |
+| Đóng góp được duyệt | +10 Coin |
+| Vote chính xác | +1 Coin (max 5/ngày) |
+| Xem bản đồ | -2 Coin/ngày |
+| Nạp tiền | $1 = 10 Coin |
 
 ### 7. Đánh giá rủi ro
 
-Dưới đây là các rủi ro chính khi triển khai và vận hành hệ thống AWS Student Management Portal:
-
-Loại rủi ro| Mô tả| Mức độ| Biện pháp giảm thiểu  
----|---|---|---  
-Bảo mật| Token Cognito, IAM role hoặc cấu hình S3 có thể bị khai thác nếu không kiểm soát đúng| Cao| Dùng Cognito Authorizer, giới hạn quyền IAM, khóa public access cho bucket, bật CloudFront và bảo mật biến môi trường  
-Dữ liệu| Dữ liệu sinh viên và hồ sơ có thể bị mất hoặc không nhất quán nếu schema thay đổi hoặc lỗi xử lý| Trung bình| Backup DynamoDB, validate dữ liệu đầu vào, dùng logging và retry logic  
-Triển khai| Cấu hình API Gateway, Lambda, Cognito và S3 có thể sai dẫn đến hệ thống không chạy được| Trung bình| Kiểm thử từng thành phần, dùng môi trường dev/test trước khi deploy production  
-Chi phí vận hành| Số lượng request Lambda, DynamoDB read/write và lưu trữ file có thể làm chi phí tăng nhanh| Trung bình| Tối ưu Lambda, dùng DynamoDB on-demand, giới hạn log và file lưu trữ  
-Vận hành| Lambda cold start, lỗi timeout, SQS/SES không hoạt động đúng có thể ảnh hưởng trải nghiệm người dùng| Trung bình| Cấu hình timeout hợp lý, theo dõi CloudWatch, thiết lập alert và retry  
-Hạn chế email| SES ở chế độ sandbox có thể giới hạn người nhận và gây lỗi gửi email| Trung bình| Verify sender/recipient trước khi dùng, kiểm tra cấu hình SES và queue worker  
+| Loại rủi ro | Mô tả | Mức độ | Biện pháp giảm thiểu |
+|-------------|-------|--------|---------------------|
+| **AI Accuracy** | YOLO model nhận diện sai biển báo | Cao | Training với dataset lớn, voting system xác minh |
+| **Spam/Abuse** | Người dùng spam đóng góp giả | Trung bình | Rate limiting, reputation system, coin cost |
+| **Data Privacy** | Ảnh chụp có thể chứa thông tin cá nhân | Cao | Xóa EXIF metadata, blur faces/license plates |
+| **Geolocation Accuracy** | GPS không chính xác ở vùng tín hiệu yếu | Trung bình | Cho phép manual adjustment, crowd verification |
+| **Cost Overrun** | SageMaker endpoint có thể tốn kém | Trung bình | Use Lambda cold start, batch processing |
+| **Security** | API exposure, unauthorized access | Cao | Cognito authorizer, IAM roles, encryption |
+| **Voting Manipulation** | Người dùng tạo nhiều account để vote | Trung bình | Require minimum activity, weight by reputation |
+| **Scalability** | Traffic spike khi launch | Thấp | Serverless auto-scaling, DynamoDB on-demand |  
   
 ### 8. Kết quả kỳ vọng
 
-Dự án này được kỳ vọng mang lại các giá trị chính sau:
+**Mục tiêu dự án**
 
-  * Hiểu rõ cách xây dựng một ứng dụng web theo mô hình serverless trên AWS.
-  * Thực hành kết nối các dịch vụ AWS như S3, CloudFront, Cognito, API Gateway, Lambda, DynamoDB, SQS, SES và CloudWatch.
-  * Tạo được một nền tảng quản lý sinh viên có thể mở rộng cho các hệ thống thực tế về sau.
-  * Hỗ trợ việc học tập, demo và báo cáo triển khai cloud một cách trực quan và có cấu trúc.
-  * Tạo tiền đề cho các dự án nâng cao như phân quyền chi tiết, dashboard thống kê, CI/CD hoặc triển khai production.
+| Mục tiêu | Kết quả |
+|----------|---------|
+| Dữ liệu biển báo | Database 10,000+ biển báo với độ chính xác >90% |
+| Người dùng | 1,000+ active users trong 3 tháng đầu |
+| AI Detection | YOLO model đạt 85%+ accuracy |
+| Response Time | API latency <500ms cho 95% requests |
+| Uptime | 99.5%+ availability |
+| Cost | Chi phí duy trì <$200/tháng với 5k users |
 
+**Giá trị mang lại**
 
+- **Cho người lái xe**: Bản đồ biển báo cập nhật giúp lái xe an toàn hơn
+- **Cho cộng đồng**: Kênh đóng góp cải thiện hạ tầng giao thông
+- **Cho cơ quan quản lý**: Dữ liệu real-time về tình trạng biển báo
+- **Về kỹ thuật**: Kinh nghiệm xây dựng hệ thống serverless + AI + mobile
 
-Kỳ vọng thực tế của dự án là không chỉ dừng ở giao diện demo, mà còn thể hiện được cách thiết kế kiến trúc, xử lý dữ liệu, bảo mật và vận hành hệ thống trên nền tảng cloud.
+**Khả năng mở rộng**
+
+- Tích hợp với navigation apps (Google Maps, Waze)
+- Mở rộng sang các loại infrastructure khác (streetlights, road damage)
+- API cho third-party developers
+- Dashboard analytics cho traffic authorities
+- Integration với autonomous vehicle systems

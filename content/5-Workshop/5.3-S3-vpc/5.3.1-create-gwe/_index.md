@@ -1,40 +1,83 @@
 ---
-title : "Create a gateway endpoint"
+title : "Create Gateway Endpoint"
 date : 2026 
 weight : 1
 chapter : false
 pre : " <b> 5.3.1 </b> "
 ---
 
-1. Open the [Amazon VPC console](https://us-east-1.console.aws.amazon.com/vpc/home?region=us-east-1#Home:)
-2. In the navigation pane, choose **Endpoints**, then click **Create Endpoint**:
+### Objective
+Create a Gateway Endpoint to connect VPC Cloud with Amazon S3.
+
+---
+
+### Step 1: Open VPC Console
+
+```
+AWS Console → VPC → Endpoints → Create Endpoint
+```
+
+[Amazon VPC Console](https://us-east-1.console.aws.amazon.com/vpc/home?region=us-east-1#Endpoints:)
 
 {{% notice note %}}
-You will see **6 existing VPC endpoints** that support **AWS Systems Manager (SSM)**. These endpoints were deployed automatically by the **CloudFormation Templates** for this workshop.
+You'll see 6 existing endpoints for AWS Systems Manager (SSM) - pre-created by CloudFormation.
 {{% /notice %}}
 
 ![endpoint](/images/5-Workshop/5.3-S3-vpc/endpoints.png)
 
-3. In the Create endpoint console:
-+ Specify name of the endpoint: ```s3-gwe```
-+ In service category, choose **AWS services**
+---
+
+### Step 2: Configure Endpoint
+
+| Setting | Value |
+|---------|-------|
+| **Name** | `s3-gwe` |
+| **Service category** | AWS services |
+| **Service** | `com.amazonaws.us-east-1.s3` (Type: Gateway) |
+| **VPC** | VPC Cloud |
+| **Route tables** | Select route table (not Main) |
+| **Policy** | Full access |
+
+**Screenshots:**
 
 ![endpoint](/images/5-Workshop/5.3-S3-vpc/create-s3-gwe1.png)
 
-+ In **Services**, type ```s3``` in the search box and choose the service with type **gateway**
-
 ![endpoint](/images/5-Workshop/5.3-S3-vpc/services.png)
-
-+ For VPC, select **VPC Cloud** from the drop-down.
-+ For **Configure route tables**, select the route table that is already associated with **two subnets** (note: this is not the main route table for the VPC, but a second route table created by CloudFormation).
 
 ![endpoint](/images/5-Workshop/5.3-S3-vpc/vpc.png)
 
-+ **For Policy**, leave the default option, **Full Access**, to allow full access to the service. You will deploy **a VPC endpoint policy** in a later lab module to demonstrate restricting access to **S3 buckets** based on policies.
-
 ![endpoint](/images/5-Workshop/5.3-S3-vpc/policy.png)
 
-+ Do not add a tag to the VPC endpoint at this time.
-+ Click **Create endpoint**, then click x after receiving a successful creation message.
+---
+
+### Step 3: Create
+
+Click **Create endpoint** → Wait for success message
 
 ![endpoint](/images/5-Workshop/5.3-S3-vpc/complete.png)
+
+---
+
+### Verify
+
+```bash
+# CLI: List endpoints
+aws ec2 describe-vpc-endpoints \
+  --filters Name=vpc-id,Values=<VPC_CLOUD_ID> \
+  --query 'VpcEndpoints[?ServiceName==`com.amazonaws.us-east-1.s3`].[VpcEndpointId,State]' \
+  --output table
+
+# Expected output:
+# vpce-xxxxx | available
+```
+
+**Route Table will automatically have entry:**
+```
+Destination: pl-xxxxx (S3 prefix list)
+Target: vpce-xxxxx (Gateway Endpoint)
+```
+
+---
+
+### Next
+[Test Gateway Endpoint](../5.3.2-test-gwe/)

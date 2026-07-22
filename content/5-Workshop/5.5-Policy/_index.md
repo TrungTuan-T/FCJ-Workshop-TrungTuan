@@ -1,99 +1,364 @@
 ---
-title : "VPC Endpoint Policies"
-date : 2026
-weight : 5
-chapter : false
-pre : " <b> 5.5. </b> "
+title: "Frontend Deployment"
+date: 2026-07-10
+weight: 5
+chapter: false
 ---
 
-When you create an interface or gateway endpoint, you can attach an endpoint policy to it that controls access to the service to which you are connecting. A VPC endpoint policy is an IAM resource policy that you attach to an endpoint. If you do not attach a policy when you create an endpoint, AWS attaches a default policy for you that allows full access to the service through the endpoint.
+### Overview
 
-You can create a policy that restricts access to specific S3 buckets only. This is useful if you only want certain S3 Buckets to be accessible through the endpoint.
+Deploy React mobile web app to S3 + CloudFront with Cognito authentication.
 
-In this section you will create a VPC endpoint policy that restricts access to the S3 bucket specified in the VPC endpoint policy.
+**Tech Stack:**
+- React 18 + TypeScript
+- AWS Amplify
+- Mapbox/OpenStreetMap
+- Material-UI
 
-![endpoint diagram](/images/5-Workshop/5.5-Policy/s3-bucket-policy.png)
+---
 
-#### Connect to an EC2 instance and verify connectivity to S3
+### Step 1: Setup Frontend
 
-1. Start a new AWS Session Manager session on the instance named Test-Gateway-Endpoint. From the session, verify that you can list the contents of the bucket you created in Part 1: Access S3 from VPC:
+```bash
+cd frontend
 
+# Install dependencies
+npm install
+
+# Configure Amplify
+cat > src/aws-config.js << EOF
+export const awsConfig = {
+  Auth: {
+    region: 'us-east-1',
+    userPoolId: '${USER_POOL_ID}',
+    userPoolWebClientId: '${CLIENT_ID}'
+  },
+  API: {
+    endpoints: [{
+      name: 'TSLSignMapAPI',
+      endpoint: 'https://${API_ID}.execute-api.us-east-1.amazonaws.com/prod'
+    }]
+  }
+};
+EOF
 ```
-aws s3 ls s3://\<your-bucket-name\>
+
+---
+
+### Step 2: Build Frontend
+
+```bash
+# Build production
+npm run build
+
+# Output in build/ directory
+ls -lh build/
 ```
-![test](/images/5-Workshop/5.5-Policy/test1.png)
 
-The bucket contents include the two 1 GB files uploaded in earlier.
-
-2. Create a new S3 bucket; follow the naming pattern you used in Part 1, but add a '-2' to the name. Leave other fields as default and click create
-
-![create bucket](/images/5-Workshop/5.5-Policy/create-bucket.png)
-
-Successfully create bucket
-
-![Success](/images/5-Workshop/5.5-Policy/create-bucket-success.png)
-
-3. Navigate to: Services > VPC > Endpoints, then select the Gateway VPC endpoint you created earlier. Click the Policy tab. Click Edit policy.
-
-![policy](/images/5-Workshop/5.5-Policy/policy1.png)
-
-The default policy allows access to all S3 Buckets through the VPC endpoint.
-
-4. In Edit Policy console, copy & Paste the following policy, then replace yourbucketname-2 with your 2nd bucket name. This policy will allow access through the VPC endpoint to your new bucket, but not any other bucket in Amazon S3. Click Save to apply the policy.
-
+**Build output:**
 ```
+build/
+├── index.html
+├── static/
+│   ├── js/
+│   ├── css/
+│   └── media/
+└── manifest.json
+```
+
+---
+
+### Step 3: Deploy to S3
+
+```bash
+FRONTEND_BUCKET="tsl-signmap-frontend-$(aws sts get-caller-identity --query Account --output text)"
+
+# Create bucket
+aws s3 mb s3://$FRONTEND_BUCKET
+
+# Enable static website hosting
+aws s3 website s3://$FRONTEND_BUCKET \
+  --index-document index.html \
+  --error-document index.html
+
+# Upload files
+aws s3 sync build/ s3://$FRONTEND_BUCKET/ \
+  --delete \
+  --cache-control "public, max-age=31536000, immutable" \
+  --exclude "*.html" \
+  --exclude "service-worker.js"
+
+# Upload HTML with no-cache
+aws s3 sync build/ s3://$FRONTEND_BUCKET/ \
+  --exclude "*" \
+  --include "*.html" \
+  --include "service-worker.js" \
+  --cache-control "no-cache, no-store, must-revalidate"
+```
+
+---
+
+### Step 4: Setup CloudFront
+
+```bash
+# Create OAI
+OAI_ID=$(aws cloudfront create-cloud-front-origin-access-identity \
+  --cloud-front-origin-access-identity-config \
+    CallerReference=$(date +%s),Comment="TSL-SignMap OAI" \
+  --query 'CloudFrontOriginAccessIdentity.Id' \
+  --output text)
+
+# Create distribution
+cat > cloudfront-config.json << EOF
 {
-  "Id": "Policy1631305502445",
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Sid": "Stmt1631305501021",
-      "Action": "s3:*",
-      "Effect": "Allow",
-      "Resource": [
-      				"arn:aws:s3:::yourbucketname-2",
-       				"arn:aws:s3:::yourbucketname-2/*"
-       ],
-      "Principal": "*"
-    }
-  ]
+  "Comment": "TSL-SignMap Frontend",
+  "Enabled": true,
+  "Origins": {
+    "Quantity": 1,
+    "Items": [{
+      "Id": "S3-tsl-signmap",
+      "DomainName": "${FRONTEND_BUCKET}.s3.amazonaws.com",
+      "S3OriginConfig": {
+        "OriginAccessIdentity": "origin-access-identity/cloudfront/${OAI_ID}"
+      }
+    }]
+  },
+  "DefaultRootObject": "index.html",
+  "DefaultCacheBehavior": {
+    "TargetOriginId": "S3-tsl-signmap",
+    "ViewerProtocolPolicy": "redirect-to-https",
+    "AllowedMethods": {
+      "Quantity": 2,
+      "Items": ["GET", "HEAD"]
+    },
+    "Compress": true,
+    "MinTTL": 0,
+    "DefaultTTL": 86400,
+    "MaxTTL": 31536000
+  },
+  "CustomErrorResponses": {
+    "Quantity": 1,
+    "Items": [{
+      "ErrorCode": 404,
+      "ResponsePagePath": "/index.html",
+      "ResponseCode": "200",
+      "ErrorCachingMinTTL": 300
+    }]
+  }
 }
+EOF
+
+DISTRIBUTION_ID=$(aws cloudfront create-distribution \
+  --distribution-config file://cloudfront-config.json \
+  --query 'Distribution.Id' \
+  --output text)
+
+# Get CloudFront domain
+DOMAIN=$(aws cloudfront get-distribution \
+  --id $DISTRIBUTION_ID \
+  --query 'Distribution.DomainName' \
+  --output text)
+
+echo "Frontend URL: https://$DOMAIN"
 ```
 
-![custom policy](/images/5-Workshop/5.5-Policy/policy2.png)
+---
 
-Successfully customize policy
+### Step 5: Update S3 Bucket Policy
 
-![success](/static/images/5-Workshop/5.5-Policy/success.png)
+```bash
+cat > bucket-policy.json << EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Sid": "AllowCloudFrontOAI",
+    "Effect": "Allow",
+    "Principal": {
+      "AWS": "arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${OAI_ID}"
+    },
+    "Action": "s3:GetObject",
+    "Resource": "arn:aws:s3:::${FRONTEND_BUCKET}/*"
+  }]
+}
+EOF
 
-5. From your session on the Test-Gateway-Endpoint instance, test access to the S3 bucket you created in Part 1: Access S3 from VPC
+aws s3api put-bucket-policy \
+  --bucket $FRONTEND_BUCKET \
+  --policy file://bucket-policy.json
 ```
-aws s3 ls s3://<yourbucketname>
+
+---
+
+### Frontend Features
+
+**1. Authentication**
+```javascript
+// Login
+import { Auth } from 'aws-amplify';
+
+async function login(email, password) {
+  const user = await Auth.signIn(email, password);
+  return user;
+}
+
+// Get current user
+const user = await Auth.currentAuthenticatedUser();
+const token = user.signInUserSession.idToken.jwtToken;
 ```
 
-This command will return an error because access to this bucket is not permitted by your new VPC endpoint policy:
+**2. Submit Sign**
+```javascript
+// Get upload URL
+const response = await fetch(
+  `${API_URL}/signs/upload-url?filename=sign.jpg`,
+  { headers: { Authorization: `Bearer ${token}` } }
+);
+const { uploadUrl, imageKey } = await response.json();
 
-![error](/static/images/5-Workshop/5.5-Policy/error.png)
+// Upload image to S3
+await fetch(uploadUrl, {
+  method: 'PUT',
+  body: imageFile,
+  headers: { 'Content-Type': 'image/jpeg' }
+});
 
-6. Return to your home directory on your EC2 instance ` cd~ `
+// Submit sign metadata
+await fetch(`${API_URL}/signs`, {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${token}`,
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    location: { lat, lng },
+    signType: 'stop',
+    imageKey
+  })
+});
+```
 
-+ Create a file ```fallocate -l 1G test-bucket2.xyz ```
-+ Copy file to 2nd bucket ```aws s3 cp test-bucket2.xyz s3://<your-2nd-bucket-name>```
+**3. Map Integration**
+```javascript
+import mapboxgl from 'mapbox-gl';
 
-![success](/static/images/5-Workshop/5.5-Policy/test2.png)
+const map = new mapboxgl.Map({
+  container: 'map',
+  style: 'mapbox://styles/mapbox/streets-v11',
+  center: [lng, lat],
+  zoom: 13
+});
 
-This operation succeeds because it is permitted by the VPC endpoint policy.
+// Load nearby signs
+const response = await fetch(
+  `${API_URL}/signs/nearby?lat=${lat}&lng=${lng}&radius=2`,
+  { headers: { Authorization: `Bearer ${token}` } }
+);
+const signs = await response.json();
 
-![success](/static/images/5-Workshop/5.5-Policy/test2-success.png)
+// Add markers
+signs.forEach(sign => {
+  new mapboxgl.Marker()
+    .setLngLat([sign.location.lng, sign.location.lat])
+    .setPopup(new mapboxgl.Popup().setHTML(`<h3>${sign.signType}</h3>`))
+    .addTo(map);
+});
+```
 
-+ Then we test access to the first bucket by copy the file to 1st bucket `aws s3 cp test-bucket2.xyz s3://<your-1st-bucket-name>`
+---
 
-![fail](/static/images/5-Workshop/5.5-Policy/test2-fail.png)
+### Testing
 
-This command will return an error because access to this bucket is not permitted by your new VPC endpoint policy.
+```bash
+# Test locally
+npm start
 
-#### Part 3 Summary:
+# Access at http://localhost:3000
 
-In this section, you created a VPC endpoint policy for Amazon S3, and used the AWS CLI to test the policy. AWS CLI actions targeted to your original S3 bucket failed because you applied a policy that only allowed access to the second bucket you created. AWS CLI actions targeted for your second bucket succeeded because the policy allowed them. These policies can be useful in situations where you need to control access to resources through VPC endpoints.
+# Test production build
+npm run build
+npx serve -s build -p 3000
+```
 
+**Manual Testing:**
+1. Navigate to CloudFront URL
+2. Register new account
+3. Verify email
+4. Login
+5. Submit traffic sign with photo
+6. View on map
+7. Vote on other signs
+8. Check coin balance
 
+---
+
+### CI/CD with GitHub Actions
+
+```yaml
+# .github/workflows/deploy.yml
+name: Deploy Frontend
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '18'
+      
+      - name: Install dependencies
+        run: npm ci
+        working-directory: ./frontend
+      
+      - name: Build
+        run: npm run build
+        working-directory: ./frontend
+      
+      - name: Deploy to S3
+        run: |
+          aws s3 sync build/ s3://${{ secrets.FRONTEND_BUCKET }}/ --delete
+        working-directory: ./frontend
+      
+      - name: Invalidate CloudFront
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ secrets.DISTRIBUTION_ID }} \
+            --paths "/*"
+```
+
+---
+
+### Performance Optimization
+
+| Technique | Implementation |
+|-----------|----------------|
+| Code splitting | React.lazy() for routes |
+| Image optimization | WebP format, lazy loading |
+| Caching | CloudFront + Service Worker |
+| Compression | Gzip/Brotli enabled |
+| CDN | CloudFront edge locations |
+
+---
+
+### Cost Estimate
+
+| Service | Usage | Cost/month |
+|---------|-------|------------|
+| S3 | 100MB storage, 100K requests | $0.50 |
+| CloudFront | 50GB transfer, 1M requests | $4.50 |
+| Route 53 (optional) | Hosted zone | $0.50 |
+| **Total** | | **$5.50/month** |
+
+---
+
+### Next: Testing
+
+```bash
+cd ../5.6-testing-cleanup/
+```

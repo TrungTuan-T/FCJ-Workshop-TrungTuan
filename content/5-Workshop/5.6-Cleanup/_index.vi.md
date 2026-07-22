@@ -1,37 +1,385 @@
 ---
-title : "Dọn dẹp tài nguyên"
-date : 2026
-weight : 6
-chapter : false
-pre : " <b> 5.6. </b> "
+title: "Kiểm thử & Dọn dẹp"
+date: 2026-07-10
+weight: 6
+chapter: false
 ---
 
-#### Dọn dẹp tài nguyên
+### Tổng quan
 
-Xin chúc mừng bạn đã hoàn thành xong lab này!
-Trong lab này, bạn đã học về các mô hình kiến trúc để truy cập Amazon S3 mà không sử dụng Public Internet.
+Testing end-to-end TSL-SignMap system và cleanup tất cả AWS resources sau khi hoàn thành workshop.
 
-+ Bằng cách tạo Gateway endpoint, bạn đã cho phép giao tiếp trực tiếp giữa các tài nguyên EC2 và Amazon S3, mà không đi qua Internet Gateway.
-Bằng cách tạo Interface endpoint, bạn đã mở rộng kết nối S3 đến các tài nguyên chạy trên trung tâm dữ liệu trên chỗ của bạn thông qua AWS Site-to-Site VPN hoặc Direct Connect.
+---
 
-#### Dọn dẹp
-1. Điều hướng đến Hosted Zones trên phía trái của bảng điều khiển Route 53. Nhấp vào tên của  s3.us-east-1.amazonaws.com zone. Nhấp vào Delete và xác nhận việc xóa bằng cách nhập từ khóa "delete".
+### Bước 1: E2E Testing
 
-![hosted zone](/images/5-Workshop/5.6-Cleanup/delete-zone.png)
+#### Test Authentication
 
-2. Disassociate Route 53 Resolver Rule - myS3Rule from "VPC Onprem" and Delete it. 
+```bash
+# Register new user
+curl -X POST \
+  https://cognito-idp.us-east-1.amazonaws.com/ \
+  -H 'Content-Type: application/x-amz-json-1.1' \
+  -H 'X-Amz-Target: AWSCognitoIdentityProviderService.SignUp' \
+  -d '{
+    "ClientId": "'$CLIENT_ID'",
+    "Username": "testuser@example.com",
+    "Password": "TestPass123!",
+    "UserAttributes": [
+      {"Name": "email", "Value": "testuser@example.com"}
+    ]
+  }'
 
-![hosted zone](/images/5-Workshop/5.6-Cleanup/vpc.png)
+# Login
+TOKEN=$(aws cognito-idp initiate-auth \
+  --client-id $CLIENT_ID \
+  --auth-flow USER_PASSWORD_AUTH \
+  --auth-parameters USERNAME=testuser@example.com,PASSWORD=TestPass123! \
+  --query 'AuthenticationResult.IdToken' \
+  --output text)
 
-4.Mở console của CloudFormation và xóa hai stack CloudFormation mà bạn đã tạo cho bài thực hành này:
-+ PLOnpremSetup
-+ PLCloudSetup
+echo "Token: $TOKEN"
+```
 
-![delete stack](/images/5-Workshop/5.6-Cleanup/delete-stack.png)
+#### Test Sign Submission
 
-5. Xóa các S3 bucket
+```bash
+# 1. Get upload URL
+UPLOAD_RESPONSE=$(curl -X GET \
+  "https://$API_ID.execute-api.us-east-1.amazonaws.com/prod/signs/upload-url?filename=test-sign.jpg" \
+  -H "Authorization: Bearer $TOKEN")
 
-+ Mở bảng điều khiển S3
-+ Chọn bucket chúng ta đã tạo cho lab, nhấp chuột và xác nhận là empty. Nhấp Delete và xác nhận delete.
-+ 
-![delete s3](/images/5-Workshop/5.6-Cleanup/delete-s3.png)
+UPLOAD_URL=$(echo $UPLOAD_RESPONSE | jq -r '.uploadUrl')
+IMAGE_KEY=$(echo $UPLOAD_RESPONSE | jq -r '.imageKey')
+
+# 2. Upload image to S3
+curl -X PUT "$UPLOAD_URL" \
+  -H "Content-Type: image/jpeg" \
+  --data-binary "@test-images/stop-sign.jpg"
+
+# 3. Submit sign metadata
+curl -X POST \
+  https://$API_ID.execute-api.us-east-1.amazonaws.com/prod/signs \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "location": {
+      "lat": 10.762622,
+      "lng": 106.660172
+    },
+    "signType": "stop",
+    "imageKey": "'$IMAGE_KEY'"
+  }'
+```
+
+#### Test Query Nearby Signs
+
+```bash
+curl -X GET \
+  "https://$API_ID.execute-api.us-east-1.amazonaws.com/prod/signs/nearby?lat=10.76&lng=106.66&radius=5" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+#### Test Voting
+
+```bash
+# Get a sign ID from previous query
+SIGN_ID="sign_12345"
+
+# Vote
+curl -X POST \
+  https://$API_ID.execute-api.us-east-1.amazonaws.com/prod/votes \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "signId": "'$SIGN_ID'",
+    "voteType": "upvote"
+  }'
+
+# Check updated vote stats
+curl -X GET \
+  "https://$API_ID.execute-api.us-east-1.amazonaws.com/prod/signs/$SIGN_ID" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+#### Test User Profile
+
+```bash
+# Get profile with coins and reputation
+curl -X GET \
+  https://$API_ID.execute-api.us-east-1.amazonaws.com/prod/users/me \
+  -H "Authorization: Bearer $TOKEN"
+
+# Expected response:
+{
+  "userId": "user_abc123",
+  "email": "testuser@example.com",
+  "coinBalance": 21,
+  "reputationScore": 52,
+  "totalSubmissions": 1,
+  "totalVotes": 1
+}
+```
+
+---
+
+### Bước 2: Load Testing
+
+```bash
+# Install artillery
+npm install -g artillery
+
+# Create load test scenario
+cat > loadtest.yml << 'EOF'
+config:
+  target: "https://$API_ID.execute-api.us-east-1.amazonaws.com/prod"
+  phases:
+    - duration: 60
+      arrivalRate: 10
+      name: "Warm up"
+    - duration: 120
+      arrivalRate: 50
+      name: "Sustained load"
+  defaults:
+    headers:
+      Authorization: "Bearer $TOKEN"
+
+scenarios:
+  - name: "Query nearby signs"
+    flow:
+      - get:
+          url: "/signs/nearby?lat=10.76&lng=106.66&radius=2"
+  
+  - name: "Get user profile"
+    flow:
+      - get:
+          url: "/users/me"
+EOF
+
+# Run load test
+artillery run loadtest.yml
+```
+
+**Expected results:**
+- 95% requests < 500ms
+- 0% errors
+- No Lambda throttling
+
+---
+
+### Bước 3: Verify All Components
+
+```bash
+#!/bin/bash
+# Script: verify-system.sh
+
+echo "=== TSL-SignMap System Verification ==="
+
+# DynamoDB
+echo "✓ Checking DynamoDB tables..."
+aws dynamodb list-tables | grep tsl-signmap | wc -l
+# Expected: 3
+
+# S3
+echo "✓ Checking S3 buckets..."
+aws s3 ls | grep tsl-signmap | wc -l
+# Expected: 2
+
+# Lambda
+echo "✓ Checking Lambda functions..."
+aws lambda list-functions | grep tsl-signmap | wc -l
+# Expected: 7
+
+# API Gateway
+echo "✓ Checking API Gateway..."
+aws apigateway get-rest-apis | grep tsl-signmap
+
+# Cognito
+echo "✓ Checking Cognito User Pool..."
+aws cognito-idp list-user-pools --max-results 10 | grep tsl-signmap
+
+# CloudFront
+echo "✓ Checking CloudFront distribution..."
+aws cloudfront list-distributions | grep tsl-signmap
+
+# CloudWatch Logs
+echo "✓ Checking CloudWatch Logs..."
+aws logs describe-log-groups | grep /aws/lambda | grep tsl | wc -l
+
+echo "=== Verification Complete ==="
+```
+
+---
+
+### Bước 4: Cleanup Resources
+
+⚠️ **WARNING**: Script này sẽ XÓA TẤT CẢ resources. Chỉ chạy khi hoàn thành workshop!
+
+```bash
+#!/bin/bash
+# Script: cleanup-all.sh
+
+set -e
+
+echo "🗑️  Starting cleanup of TSL-SignMap resources..."
+
+# Get Account ID
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+
+# 1. Delete CloudFront Distribution
+echo "Deleting CloudFront..."
+DIST_ID=$(aws cloudfront list-distributions \
+  --query "DistributionList.Items[?Comment=='TSL-SignMap Frontend'].Id" \
+  --output text)
+
+if [ ! -z "$DIST_ID" ]; then
+  # Disable distribution
+  aws cloudfront get-distribution-config --id $DIST_ID > dist-config.json
+  ETAG=$(aws cloudfront get-distribution-config --id $DIST_ID --query 'ETag' --output text)
+  
+  jq '.DistributionConfig.Enabled = false' dist-config.json > dist-config-disabled.json
+  
+  aws cloudfront update-distribution \
+    --id $DIST_ID \
+    --distribution-config file://dist-config-disabled.json \
+    --if-match $ETAG
+  
+  echo "Waiting for distribution to disable (5 min)..."
+  sleep 300
+  
+  # Delete distribution
+  ETAG=$(aws cloudfront get-distribution-config --id $DIST_ID --query 'ETag' --output text)
+  aws cloudfront delete-distribution --id $DIST_ID --if-match $ETAG
+  
+  rm dist-config.json dist-config-disabled.json
+fi
+
+# 2. Delete S3 Buckets
+echo "Deleting S3 buckets..."
+for bucket in $(aws s3 ls | grep tsl-signmap | awk '{print $3}'); do
+  echo "  Emptying bucket: $bucket"
+  aws s3 rm s3://$bucket --recursive
+  aws s3 rb s3://$bucket
+done
+
+# 3. Delete Lambda Functions
+echo "Deleting Lambda functions..."
+for func in $(aws lambda list-functions --query 'Functions[?contains(FunctionName, `tsl-signmap`)].FunctionName' --output text); do
+  aws lambda delete-function --function-name $func
+done
+
+# 4. Delete API Gateway
+echo "Deleting API Gateway..."
+API_ID=$(aws apigateway get-rest-apis \
+  --query 'items[?name==`tsl-signmap-api`].id' \
+  --output text)
+
+if [ ! -z "$API_ID" ]; then
+  aws apigateway delete-rest-api --rest-api-id $API_ID
+fi
+
+# 5. Delete SQS Queues
+echo "Deleting SQS queues..."
+for queue in $(aws sqs list-queues --query 'QueueUrls[?contains(@, `tsl-signmap`)]' --output text); do
+  aws sqs delete-queue --queue-url $queue
+done
+
+# 6. Delete DynamoDB Tables
+echo "Deleting DynamoDB tables..."
+for table in tsl-signmap-TrafficSigns-dev tsl-signmap-Users-dev tsl-signmap-Votes-dev; do
+  aws dynamodb delete-table --table-name $table 2>/dev/null || true
+done
+
+# 7. Delete Cognito User Pool
+echo "Deleting Cognito User Pool..."
+USER_POOL_ID=$(aws cognito-idp list-user-pools --max-results 10 \
+  --query 'UserPools[?Name==`tsl-signmap-users`].Id' \
+  --output text)
+
+if [ ! -z "$USER_POOL_ID" ]; then
+  aws cognito-idp delete-user-pool --user-pool-id $USER_POOL_ID
+fi
+
+# 8. Delete Location Service Resources
+echo "Deleting Location Service..."
+aws location delete-place-index --index-name TSL-SignMap-PlaceIndex 2>/dev/null || true
+aws location delete-route-calculator --calculator-name TSL-RouteCalculator 2>/dev/null || true
+
+# 9. Delete CloudWatch Log Groups
+echo "Deleting CloudWatch Logs..."
+for log_group in $(aws logs describe-log-groups --query 'logGroups[?contains(logGroupName, `tsl-signmap`)].logGroupName' --output text); do
+  aws logs delete-log-group --log-group-name $log_group
+done
+
+# 10. Delete IAM Role
+echo "Deleting IAM Role..."
+ROLE_NAME="tsl-signmap-lambda-role"
+aws iam delete-role-policy --role-name $ROLE_NAME --policy-name TSLPermissions 2>/dev/null || true
+aws iam detach-role-policy --role-name $ROLE_NAME --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole 2>/dev/null || true
+aws iam delete-role --role-name $ROLE_NAME 2>/dev/null || true
+
+# 11. Delete CloudFormation Stack (if using SAM)
+echo "Deleting CloudFormation stack..."
+aws cloudformation delete-stack --stack-name tsl-signmap-backend 2>/dev/null || true
+
+echo "✅ Cleanup complete!"
+echo "Note: Some resources may take a few minutes to fully delete."
+```
+
+**Chạy cleanup:**
+```bash
+bash scripts/cleanup-all.sh
+```
+
+---
+
+### Verification After Cleanup
+
+```bash
+# Verify no resources remaining
+aws dynamodb list-tables | grep tsl-signmap
+aws s3 ls | grep tsl-signmap
+aws lambda list-functions | grep tsl-signmap
+aws apigateway get-rest-apis | grep tsl-signmap
+
+# Should return empty results
+```
+
+---
+
+### Cost Summary
+
+| Phase | Duration | Estimated Cost |
+|-------|----------|----------------|
+| **Development** | 1 week | ~$20 |
+| **Testing** | 2 days | ~$10 |
+| **Production** (1 month, 5K users) | 30 days | ~$80 |
+| **TOTAL Workshop** | | **~$30** |
+
+**Free Tier Coverage:**
+- Cognito: 50K MAU/month
+- Lambda: 1M requests/month
+- DynamoDB: 25GB storage
+- S3: 5GB storage
+
+---
+
+### Kết luận
+
+Bạn đã hoàn thành workshop TSL-SignMap! 🎉
+
+**Đã học được:**
+- ✅ Serverless architecture với Lambda, DynamoDB, API Gateway
+- ✅ AI integration với SageMaker (YOLO)
+- ✅ Geospatial queries với Location Service
+- ✅ Authentication với Cognito
+- ✅ Frontend deployment với S3 + CloudFront
+- ✅ Voting system và reputation management
+- ✅ Cost optimization strategies
+
+**Next Steps:**
+- Deploy SageMaker endpoint với YOLO model
+- Implement real-time notifications với SNS
+- Add analytics dashboard
+- Setup monitoring alerts
+- Implement CI/CD pipeline

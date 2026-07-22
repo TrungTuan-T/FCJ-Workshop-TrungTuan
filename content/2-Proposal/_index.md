@@ -6,182 +6,232 @@ chapter: false
 pre: " <b> 2. </b> "
 ---
 
-# AWS Student Management Portal
+# TSL-SignMap
 
-## A Student Management Portal Powered by AWS
+## Community-Driven Traffic Sign Location Management System with AI
 
 ### 1. Executive Summary
 
-The AWS Student Management Portal is designed according to a modern cloud model, using serverless architecture, automation, and multi-layer security to improve operational efficiency and information protection.
+TSL-SignMap is a traffic sign management system combining crowdsourcing, AI detection (YOLO), and real-time mapping. The system uses serverless architecture on AWS, integrating mobile apps and OpenStreetMap to create an accurate, continuously updated traffic sign database.
 
 ### 2. Problem Statement
 
- _Current problem_
+**Current Problems**
 
-  * Traditional monolithic application architectures often face difficulties with product release, causing delayed releases, missed business opportunities, and reduced revenue.
-  * The system becomes inefficient when traffic surges suddenly (for example, during course registration or student document submission periods), leading to high 24/7 server maintenance costs while performance remains suboptimal.
-  * Manual deployment processes are prone to human error. In addition, weak compliance with security regulations or loose access control can compromise information security and damage system credibility.
+| Problem | Description |
+|---------|-------------|
+| Outdated sign data | Traffic signs change but maps don't update in time |
+| High survey costs | Manual surveys are time and labor intensive |
+| Lack of community involvement | People have no channel to contribute information |
+| Low accuracy | Manual sign verification is error-prone |
 
+**TSL-SignMap Solution**
 
+| Feature | Technology |
+|---------|------------|
+| Crowdsourcing | Mobile app allows users to report signs |
+| AI Detection | YOLO model automatically detects and classifies signs |
+| Voting System | Community verifies contribution accuracy |
+| Real-time Map | OpenStreetMap integration displays updated signs |
+| Reward System | TSL Coin incentivizes user participation |
 
-_Solution_
+**Benefits**
 
-  * Build the AWS Student Management Portal by fully transitioning to a modern architecture: split the system into modular components with independent microservices combined with serverless services (AWS Lambda, DynamoDB, and API Gateway).
-  * Apply event-driven architecture using Amazon SQS to handle asynchronous tasks and enable flexible communication between services.
-  * Implement multi-layer security from the network layer (WAF, CloudFront), identity layer (Cognito), to the data layer (AWS KMS, IAM Roles).
-  * Fully automate the software development lifecycle (SDLC) through an automated CI/CD pipeline (CodeCommit → CodePipeline → CodeBuild).
-
-
-
-_Benefits and Return on Investment (ROI)_
-
-  * Cost and performance efficiency: Serverless mechanisms eliminate the need to manage physical infrastructure. The system automatically scales immediately when traffic increases and uses a pay-for-value model—paying only when the code runs.
-  * Flexibility and resilience: Asynchronous communication via queues creates high loose coupling, reducing backend load and helping ensure the system does not fail during local overload.
-  * Absolute information security: Reduce the risk of data leakage through automatic encryption at rest, least-privilege access (IAM Roles), and periodic backup and recovery policies (AWS Backup).
-  * Faster product development: Automated CI/CD reduces manual mistakes and shortens the time required to release new versions.
+| Benefit | Details |
+|---------|---------|
+| Updated data | Signs continuously updated by community |
+| Low cost | Serverless reduces infrastructure costs |
+| High accuracy | AI + voting system ensures data quality |
+| Scalability | Auto-scaling handles traffic spikes |
+| Security | Multi-layer security protects user data |
 
 
 
 ### 3. Solution Architecture
 
-The AWS Student Management Portal is built on cloud-native architecture, combining serverless computing and event-driven design. The entire architecture is divided into independent functional layers, ensuring automatic scalability, cost optimization, and multi-layer security.
+TSL-SignMap uses serverless, event-driven architecture on AWS, combining mobile apps and AI models to build a real-time traffic sign management system.
 
-![AWS Student Management Portal](/images/2-Proposal/aws.jpg)
+![TSL-SignMap Architecture](/images/2-Proposal/aws.jpg)
 
-_AWS services used_
+**AWS Services Used**
 
-  * Amazon Route 53: Domain management and DNS resolution service.
-  * Amazon CloudFront: Global content distribution network (CDN) that accelerates page loading and caching.
-  * AWS WAF: Web application firewall that protects applications from malicious network attacks.
-  * Amazon S3: Stores static frontend source code (website hosting) and student document files.
-  * Amazon Cognito: Identity management service for user registration/sign-in and JWT token issuance.
-  * Amazon API Gateway: Entry point for receiving, routing, and controlling API requests and enforcing rate limiting.
-  * AWS Lambda: Serverless compute service that executes backend logic automatically in response to events.
-  * Amazon DynamoDB: High-performance NoSQL database for storing detailed student information.
-  * Amazon SQS: Message queue that supports receiving and processing asynchronous tasks.
-  * Amazon SES: Service for sending automated emails to students and administrators.
-  * Amazon CloudWatch: Monitoring tool for system performance, logs, metrics, and alarms.
-  * Amazon SNS: Publish/subscribe notification service for sending system alerts to administrators.
-  * AWS KMS: Manages and creates encryption keys for stored data.
-  * AWS Backup: Centrally manages automated backup and recovery policies.
-  * AWS CodeCommit: Secure Git-based source code repository.
-  * AWS CodeBuild: Compiles source code, runs tests, and packages artifacts automatically.
-  * AWS CodePipeline: Orchestrates the continuous deployment (CI/CD) workflow.
+| Service | Role |
+|---------|------|
+| Amazon Cognito | User authentication, JWT token management |
+| Amazon API Gateway | REST API endpoints for mobile app |
+| AWS Lambda | Backend logic processing, AI inference |
+| Amazon DynamoDB | Store traffic sign info, user data |
+| Amazon S3 | Store sign images, YOLO models |
+| Amazon SageMaker | Train and host YOLO model |
+| Amazon Location Service | Geospatial data processing, map integration |
+| Amazon SQS | Asynchronous image processing queue |
+| Amazon SNS | User notifications |
+| Amazon CloudWatch | Monitoring and logging |
+| AWS Amplify | Deploy mobile app backend |
 
+**Component Design**
 
-
-_Component design_
-
-  * Amazon Route 53: Configure A Records (Alias) to direct the domain to CloudFront.
-  * Amazon CloudFront: Create a distribution, configure HTTPS, and optimize caching policies for static files.
-  * AWS WAF: Attach a Web ACL to CloudFront, enable rules against SQL injection, XSS, and API rate limiting.
-  * Amazon S3 (Frontend): Enable Static Website Hosting and configure OAC (Origin Access Control) so that only CloudFront can access content while blocking public access.
-  * Amazon S3 (Data Storage): Enable Versioning, configure CORS, and allow secure file uploads through presigned URLs.
-  * Amazon Cognito: Create a User Pool to manage student accounts and issue JWT tokens.
-  * Amazon API Gateway: Set up REST API endpoints and integrate a Cognito Authorizer to allow or block requests.
-  * AWS Lambda: Run backend code (Node.js/Python) and scale automatically based on incoming events.
-  * Amazon DynamoDB: Configure On-Demand mode for automatic capacity scaling and set StudentID as the primary key.
-  * Amazon SQS and SES: Configure Standard/FIFO queues for asynchronous processing and call the SES API to send emails after proper DKIM/SPF configuration.
-  * CloudWatch and SNS: Create metric filters to detect system errors and configure alarms that send alerts through SNS topics.
-  * AWS KMS and Backup: Encrypt stored data automatically and set periodic backup policies ready for disaster recovery.
-  * CI/CD (Code Suite): Automate build and deployment workflows.
+| Component | Technical Details |
+|-----------|-------------------|
+| Mobile App | React Native/Flutter connected to API Gateway |
+| Authentication | Cognito User Pool with MFA |
+| API Layer | API Gateway + Lambda authorizer |
+| AI Detection | Lambda invokes SageMaker endpoint (YOLO) |
+| Database | DynamoDB: SignID (PK), Location (GSI) |
+| Image Storage | S3 with presigned URL upload |
+| Voting System | Lambda + DynamoDB transactions |
+| Coin System | DynamoDB table tracks user balance |
+| Map Integration | Location Service + OpenStreetMap API |
+| Notifications | SNS push notifications via mobile app |
 
 
 
 ### 4. Technical Implementation
 
- _Technical requirements_
+**Technical Requirements**
 
-  * Compute and Logic Layer: AWS Lambda (for asynchronous backend processing and management logic) and Amazon API Gateway.
-  * Storage and Database: Amazon DynamoDB (database for storing student information) and Amazon S3 (storage for static frontend assets and student documents).
-  * Security and Identity: Amazon Cognito, IAM Roles, and AWS KMS (encryption key management).
-  * Observability: Amazon CloudWatch (logs and metrics), CloudWatch Alarms, and Amazon SNS (alert coordination).
-  * Data Protection and Resiliency: AWS Backup (periodic backup and disaster recovery policy).
-  * CI/CD Automation: AWS CodeCommit (source management), AWS CodeBuild (packaging and testing), and AWS CodePipeline (continuous deployment automation).
+| Layer | AWS Services |
+|-------|--------------|
+| Mobile App | AWS Amplify, React Native/Flutter |
+| Authentication | Amazon Cognito User Pool |
+| API Gateway | Amazon API Gateway REST API |
+| Compute | AWS Lambda (Python/Node.js) |
+| AI/ML | Amazon SageMaker (YOLO model) |
+| Database | Amazon DynamoDB (On-Demand) |
+| Storage | Amazon S3 (images, models) |
+| Geospatial | Amazon Location Service |
+| Queue | Amazon SQS (image processing) |
+| Notifications | Amazon SNS (push notifications) |
+| Monitoring | Amazon CloudWatch |
+| Security | AWS KMS, IAM Roles |
+
+**Data Model (DynamoDB)**
+
+```
+Table: TrafficSigns
+- SignID (PK)
+- Location (lat, long) - GSI
+- SignType (warning, regulatory, information)
+- ImageURL (S3 path)
+- Status (pending, approved, rejected)
+- SubmittedBy (UserID)
+- Votes (upvotes, downvotes)
+- CreatedAt, UpdatedAt
+
+Table: Users
+- UserID (PK)
+- Email
+- CoinBalance
+- ReputationScore
+- SubmissionsCount
+- VotesCount
+
+Table: Votes
+- VoteID (PK)
+- SignID-UserID (GSI)
+- VoteType (upvote, downvote)
+- Weight (based on reputation)
+- Timestamp
+```
 
 
 
-### 5. Roadmap and Implementation Milestones
+### 5. Roadmap & Implementation Milestones
 
-  * Phase 1: Infrastructure setup and data security configuration
-
-
-
-Set up the core services and establish multi-layer security mechanisms.
-
-Use AWS KMS to encrypt all data at rest stored in Amazon DynamoDB and Amazon S3.
-
-Set up IAM Roles according to the least privilege principle so each service only has the permissions it needs.
-
-  * Phase 2: Monitoring and operations configuration
-
-
-
-Integrate Amazon CloudWatch to centrally collect logs and performance metrics from AWS Lambda and API Gateway.
-
-Set up CloudWatch Alarms to monitor error thresholds such as Lambda crashes or API Gateway overload.
-
-Connect the alerting system with Amazon SNS to send immediate warnings to the operations team when anomalies are detected.
-
-  * Phase 3: Continuous deployment pipeline automation (CI/CD)
-
-
-
-Set up a secure Git-based source repository using AWS CodeCommit.
-
-Use AWS CodeBuild to automate compilation, testing, and packaging.
-
-Configure AWS CodePipeline to automatically update the frontend on Amazon S3 and deploy the backend to AWS Lambda whenever new source code is pushed.
-
-  * Phase 4: Backup and periodic recovery setup
-
-
-
-Configure AWS Backup centrally to manage backups for DynamoDB and S3.
-
-Set backup and recovery policies to be ready for emergencies and data disasters.
+| Phase | Tasks | Timeline |
+|-------|-------|----------|
+| **Phase 1: Infrastructure** | Setup AWS account, VPC, IAM roles | 1 week |
+| | Deploy Cognito User Pool | |
+| | Setup DynamoDB tables | |
+| | Configure S3 buckets | |
+| **Phase 2: Backend API** | Create Lambda functions | 2 weeks |
+| | Setup API Gateway endpoints | |
+| | Implement authentication flow | |
+| | Deploy SQS queues | |
+| **Phase 3: AI Integration** | Train YOLO model on traffic signs | 2 weeks |
+| | Deploy model to SageMaker | |
+| | Create Lambda for AI inference | |
+| | Test detection accuracy | |
+| **Phase 4: Mobile App** | Develop React Native app | 3 weeks |
+| | Integrate with API Gateway | |
+| | Implement map view (Location Service) | |
+| | Add camera and image upload | |
+| **Phase 5: Voting & Coins** | Implement voting system | 1 week |
+| | Create coin transaction logic | |
+| | Add reputation calculation | |
+| **Phase 6: Testing** | Integration testing | 1 week |
+| | Load testing with traffic simulation | |
+| | Security audit | |
+| **Phase 7: Launch** | Deploy to production | 1 week |
+| | Monitor with CloudWatch | |
+| | Gather user feedback | |
 
 ### 6. Budget Estimation
 
- _Infrastructure costs_
+**AWS Infrastructure Costs (estimated/month)**
 
-AWS Service| Estimated Cost per Month  
----|---  
-Amazon S3 (frontend + documents)| $3–$8  
-Amazon CloudFront| $5–$15  
-Amazon API Gateway| $3–$8  
-AWS Lambda| $2–$10  
-Amazon DynamoDB| $10–$25  
-Amazon Cognito| $0–$10  
-Amazon SQS| $0–$2  
-Amazon SES| $0–$10  
-Amazon CloudWatch Logs| $2–$8  
-  
-Total estimate: approximately $25–$96 per month, depending on traffic, storage volume, and number of emails sent.
+| AWS Service | Estimated Cost | Notes |
+|-------------|----------------|-------|
+| Amazon Cognito | $0–$5 | First 50k MAU free |
+| Amazon API Gateway | $3–$10 | ~1M requests/month |
+| AWS Lambda | $5–$20 | Compute + AI inference |
+| Amazon DynamoDB | $10–$30 | On-Demand mode |
+| Amazon S3 | $5–$15 | Image storage + model |
+| Amazon SageMaker | $20–$50 | YOLO endpoint hosting |
+| Amazon Location Service | $5–$15 | Geospatial queries |
+| Amazon SQS | $0–$3 | Queue processing |
+| Amazon SNS | $0–$5 | Push notifications |
+| Amazon CloudWatch | $3–$10 | Logs + metrics |
+| **Total** | **$51–$163** | Depends on users and traffic |
+
+**TSL Coin Economics Model**
+
+| Action | Coins |
+|--------|-------|
+| New registration | +20 Coins |
+| Submit sign contribution | -5 Coins |
+| Contribution approved | +10 Coins |
+| Accurate vote | +1 Coin (max 5/day) |
+| View map | -2 Coins/day |
+| Top up | $1 = 10 Coins |
 
 ### 7. Risk Assessment
 
-The main risks when deploying and operating the AWS Student Management Portal are as follows:
-
-Risk Type| Description| Level| Mitigation Measures  
----|---|---|---  
-Security| Cognito tokens, IAM roles, or S3 settings may be exploited if they are not properly controlled| High| Use Cognito Authorizer, limit IAM permissions, block public access to buckets, enable CloudFront, and secure environment variables  
-Data| Student data and documents may be lost or become inconsistent if the schema changes or processing errors occur| Medium| Use DynamoDB backups, validate input data, and implement logging and retry logic  
-Deployment| Incorrect configuration of API Gateway, Lambda, Cognito, or S3 may prevent the system from running properly| Medium| Test each component thoroughly and use dev/test environments before deploying to production  
-Operational Cost| The number of Lambda requests, DynamoDB read/write operations, and stored files can cause costs to increase quickly| Medium| Optimize Lambda usage, use DynamoDB On-Demand, and limit logs and stored files  
-Operations| Lambda cold starts, timeouts, or SQS/SES failures can affect the user experience| Medium| Configure reasonable timeouts, monitor CloudWatch, and set alerts and retries  
-Email Limits| SES in sandbox mode may limit recipients and cause email delivery failures| Medium| Verify senders/recipients before use and check SES and queue worker configuration  
+| Risk Type | Description | Level | Mitigation Measures |
+|-----------|-------------|-------|-------------------|
+| **AI Accuracy** | YOLO model misidentifies traffic signs | High | Train with large dataset, voting system verification |
+| **Spam/Abuse** | Users spam fake contributions | Medium | Rate limiting, reputation system, coin cost |
+| **Data Privacy** | Photos may contain personal information | High | Remove EXIF metadata, blur faces/license plates |
+| **Geolocation Accuracy** | GPS inaccurate in weak signal areas | Medium | Allow manual adjustment, crowd verification |
+| **Cost Overrun** | SageMaker endpoint can be expensive | Medium | Use Lambda cold start, batch processing |
+| **Security** | API exposure, unauthorized access | High | Cognito authorizer, IAM roles, encryption |
+| **Voting Manipulation** | Users create multiple accounts to vote | Medium | Require minimum activity, weight by reputation |
+| **Scalability** | Traffic spike at launch | Low | Serverless auto-scaling, DynamoDB on-demand |  
   
 ### 8. Expected Outcomes
 
-This project is expected to deliver the following key values:
+**Project Goals**
 
-  * Gain a clear understanding of how to build a web application using a serverless model on AWS.
-  * Practice integrating AWS services such as S3, CloudFront, Cognito, API Gateway, Lambda, DynamoDB, SQS, SES, and CloudWatch.
-  * Create a student management platform that can be scaled for future real-world systems.
-  * Support learning, demos, and cloud deployment reporting in a clear and structured way.
-  * Create a foundation for more advanced projects such as detailed role-based access control, statistics dashboards, CI/CD, or production deployment.
+| Goal | Result |
+|------|--------|
+| Traffic sign data | Database of 10,000+ signs with >90% accuracy |
+| Users | 1,000+ active users in first 3 months |
+| AI Detection | YOLO model achieves 85%+ accuracy |
+| Response Time | API latency <500ms for 95% of requests |
+| Uptime | 99.5%+ availability |
+| Cost | Maintenance cost <$200/month with 5k users |
 
+**Value Delivered**
 
+- **For drivers**: Updated sign maps help drivers navigate safely
+- **For community**: Channel to contribute to traffic infrastructure improvements
+- **For authorities**: Real-time data on traffic sign conditions
+- **Technical learning**: Experience building serverless + AI + mobile systems
 
-In practice, the project is expected not only to be a demo interface but also to demonstrate how to design architecture, process data, ensure security, and operate the system on a cloud platform.
+**Scalability Options**
+
+- Integration with navigation apps (Google Maps, Waze)
+- Expand to other infrastructure types (streetlights, road damage)
+- API for third-party developers
+- Analytics dashboard for traffic authorities
+- Integration with autonomous vehicle systems

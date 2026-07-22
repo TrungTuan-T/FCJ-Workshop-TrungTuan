@@ -5,141 +5,574 @@ weight: 3
 chapter: false
 ---
 
-In this section, we will provision the core infrastructure services for data storage, user authentication, and message queuing, including: **DynamoDB**, **S3 Bucket**, **SQS Queue**, and **Amazon Cognito**.
+### Overview
 
-The project provides pre-configured scripts to automate this setup process.
+This section deploys 5 core components:
+- **DynamoDB**: 3 tables for data storage (Signs, Users, Votes)
+- **S3**: 2 buckets (images and ML models)
+- **SQS**: 1 queue for image processing
+- **Cognito**: User Pool + Groups
+- **Location Service**: Map index for geospatial queries
 
 ---
-### Step 1: Install Dependencies (npm packages)
 
-Navigate to the project root directory on your computer and install the required libraries for both backend and frontend:
+### Step 1: Setup AWS SAM
 
 ```bash
-# 1. Navigate to the backend directory and install dependencies
-cd backend
-npm install
+# Verify SAM CLI
+sam --version
 
-# 2. Navigate to the frontend directory and install dependencies
-cd ../frontend
-npm install
+# Initialize project structure
+cd tsl-signmap
+sam init
+```
+
+**Project structure:**
+```
+tsl-signmap/
+├── template.yaml          # SAM template
+├── samconfig.toml         # SAM configuration
+├── backend/               # Lambda functions
+└── parameters.json        # Environment-specific params
 ```
 
 ---
+
 ### Step 2: Create DynamoDB Tables
 
-The Student Management system uses **6 DynamoDB tables** for isolated business data storage, all using `id (S)` as Partition Key and running in **On-Demand (PAY_PER_REQUEST)** billing mode:
+#### Table Schema
 
-| Table | Partition Key | Description |
-| :--- | :--- | :--- |
-| **Students** | `id` (String) | Student profile (studentId) |
-| **Teachers** | `id` (String) | Teacher profile (teacherId) |
-| **Classes** | `id` (String) | Class information |
-| **Grades** | `id` (String) | Subject grades (`${studentId}-${subject}-${timestamp}`) |
-| **Materials** | `id` (String) | Teacher learning materials (`${type}-${timestamp}`) |
-| **Documents** | `id` (String) | Student document metadata (`${studentId}-${timestamp}`) |
+| Table | Partition Key | Sort Key | GSI | Billing |
+|-------|---------------|----------|-----|---------|
+| TrafficSigns | SignID (S) | - | GeoHash-index, Status-index | On-Demand |
+| Users | UserID (S) | - | Email-index | On-Demand |
+| Votes | VoteID (S) | - | SignID-index, UserID-index | On-Demand |
 
-Run the following script to automatically create all tables on AWS with `PAY_PER_REQUEST` (On-Demand) billing:
+#### Deploy Tables with SAM
+
+**template.yaml (DynamoDB section):**
+```yaml
+Resources:
+  TrafficSignsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${ProjectName}-TrafficSigns-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: SignID
+          AttributeType: S
+        - AttributeName: GeoHash
+          AttributeType: S
+        - AttributeName: Status
+          AttributeType: S
+      KeySchema:
+        - AttributeName: SignID
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: GeoHash-index
+          KeySchema:
+            - AttributeName: GeoHash
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+        - IndexName: Status-index
+          KeySchema:
+            - AttributeName: Status
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
+  UsersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${ProjectName}-Users-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: UserID
+          AttributeType: S
+        - AttributeName: Email
+          AttributeType: S
+      KeySchema:
+        - AttributeName: UserID
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: Email-index
+          KeySchema:
+            - AttributeName: Email
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+  VotesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${ProjectName}-Votes-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: VoteID
+          AttributeType: S
+        - AttributeName: SignID
+          AttributeType: S
+        - AttributeName: UserID
+          AttributeType: S
+      KeySchema:
+        - AttributeName: VoteID
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: SignID-index
+          KeySchema:
+            - AttributeName: SignID
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+        - IndexName: UserID-index
+          KeySchema:
+            - AttributeName: UserID
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      TimeToLiveSpecification:
+        Enabled: true
+        AttributeName: TTL
+```
+
+#### Deploy DynamoDB
 
 ```bash
-cd ..
-bash scripts/deploy-dynamodb.sh us-east-1
+# Deploy with SAM
+sam build
+sam deploy --guided
+
+# Or use AWS CLI
+bash scripts/create-dynamodb.sh us-east-1
 ```
-*(Alternatively, you can run `aws dynamodb create-table` for each table with the respective Partition Keys).*
 
-Once the script completes, go to **DynamoDB Console → Tables** to verify all 6 tables are created with **Active** status:
-
-![DynamoDB Tables Active](/images/5-Workshop/student-portal/dynamodb-tables.png)
-
----
-### Step 3: Create S3 Document Bucket & Configure CORS
-
-The S3 Bucket is used to store actual files uploaded by students and teachers. Since the React frontend (running in the browser) will upload files directly to S3 via **Presigned URLs**, we must configure **CORS** (Cross-Origin Resource Sharing) to prevent the browser from blocking requests.
-
-#### 1. Create S3 Bucket
-Note: S3 bucket names must be **globally unique**. Replace `<yourname>` with your initials or a personal identifier:
+**Script create-dynamodb.sh:**
 ```bash
-aws s3 mb s3://student-documents-<yourname> --region us-east-1
+#!/bin/bash
+REGION=$1
+PROJECT="tsl-signmap"
+ENV="dev"
+
+# TrafficSigns table
+aws dynamodb create-table \
+  --table-name ${PROJECT}-TrafficSigns-${ENV} \
+  --attribute-definitions \
+    AttributeName=SignID,AttributeType=S \
+    AttributeName=GeoHash,AttributeType=S \
+    AttributeName=Status,AttributeType=S \
+  --key-schema AttributeName=SignID,KeyType=HASH \
+  --global-secondary-indexes \
+    IndexName=GeoHash-index,KeySchema=[{AttributeName=GeoHash,KeyType=HASH}],Projection={ProjectionType=ALL} \
+    IndexName=Status-index,KeySchema=[{AttributeName=Status,KeyType=HASH}],Projection={ProjectionType=ALL} \
+  --billing-mode PAY_PER_REQUEST \
+  --stream-specification StreamEnabled=true,StreamViewType=NEW_AND_OLD_IMAGES \
+  --region $REGION
+
+echo "TrafficSigns table created"
+
+# Users table
+aws dynamodb create-table \
+  --table-name ${PROJECT}-Users-${ENV} \
+  --attribute-definitions \
+    AttributeName=UserID,AttributeType=S \
+    AttributeName=Email,AttributeType=S \
+  --key-schema AttributeName=UserID,KeyType=HASH \
+  --global-secondary-indexes \
+    IndexName=Email-index,KeySchema=[{AttributeName=Email,KeyType=HASH}],Projection={ProjectionType=ALL} \
+  --billing-mode PAY_PER_REQUEST \
+  --region $REGION
+
+echo "Users table created"
+
+# Votes table
+aws dynamodb create-table \
+  --table-name ${PROJECT}-Votes-${ENV} \
+  --attribute-definitions \
+    AttributeName=VoteID,AttributeType=S \
+    AttributeName=SignID,AttributeType=S \
+    AttributeName=UserID,AttributeType=S \
+  --key-schema AttributeName=VoteID,KeyType=HASH \
+  --global-secondary-indexes \
+    IndexName=SignID-index,KeySchema=[{AttributeName=SignID,KeyType=HASH}],Projection={ProjectionType=ALL} \
+    IndexName=UserID-index,KeySchema=[{AttributeName=UserID,KeyType=HASH}],Projection={ProjectionType=ALL} \
+  --billing-mode PAY_PER_REQUEST \
+  --region $REGION
+
+echo "Votes table created"
 ```
 
-#### 2. Apply CORS Configuration
-Apply the `cors.json` configuration file provided in the repository:
+#### Verify Tables
+
 ```bash
-aws s3api put-bucket-cors --bucket student-documents-<yourname> --cors-configuration file://cors.json
-```
-The `cors.json` file permits `PUT` and `POST` requests from any origin (`*`):
-```json
+aws dynamodb list-tables --region us-east-1
+
+# Output:
 {
-  "CORSRules": [
-    {
-      "AllowedHeaders": ["*"],
-      "AllowedMethods": ["GET", "PUT", "POST", "DELETE", "HEAD"],
-      "AllowedOrigins": ["*"],
-      "ExposeHeaders": ["ETag"]
-    }
+  "TableNames": [
+    "tsl-signmap-TrafficSigns-dev",
+    "tsl-signmap-Users-dev",
+    "tsl-signmap-Votes-dev"
   ]
 }
+
+# Check table details
+aws dynamodb describe-table \
+  --table-name tsl-signmap-TrafficSigns-dev \
+  --query 'Table.[TableName,TableStatus,ItemCount]'
 ```
 
 ---
-### Step 4: Create SQS Queue for Notifications
 
-Create an SQS Queue to decouple email dispatch triggers from backend Lambda functions, forwarding them asynchronously to the Email Lambda Worker:
+### Step 3: Create S3 Buckets
+
 ```bash
-aws sqs create-queue --queue-name student-notifications --region us-east-1
+#!/bin/bash
+REGION="us-east-1"
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+
+# Images bucket
+IMAGES_BUCKET="tsl-signmap-images-${ACCOUNT_ID}"
+aws s3 mb s3://$IMAGES_BUCKET --region $REGION
+
+# ML models bucket
+MODELS_BUCKET="tsl-signmap-models-${ACCOUNT_ID}"
+aws s3 mb s3://$MODELS_BUCKET --region $REGION
+
+# Block public access for images
+aws s3api put-public-access-block \
+  --bucket $IMAGES_BUCKET \
+  --public-access-block-configuration \
+    BlockPublicAcls=true,\
+    IgnorePublicAcls=true,\
+    BlockPublicPolicy=false,\
+    RestrictPublicBuckets=false
+
+# Enable versioning for images
+aws s3api put-bucket-versioning \
+  --bucket $IMAGES_BUCKET \
+  --versioning-configuration Status=Enabled
+
+# Enable server-side encryption
+aws s3api put-bucket-encryption \
+  --bucket $IMAGES_BUCKET \
+  --server-side-encryption-configuration '{
+    "Rules": [{
+      "ApplyServerSideEncryptionByDefault": {
+        "SSEAlgorithm": "AES256"
+      }
+    }]
+  }'
+
+echo "Images bucket: s3://$IMAGES_BUCKET"
+echo "Models bucket: s3://$MODELS_BUCKET"
 ```
-Record the returned **Queue URL** (e.g., `https://sqs.us-east-1.amazonaws.com/123456789/student-notifications`).
+
+#### Configure CORS for Images Bucket
+
+```bash
+cat > cors.json << 'EOF'
+{
+  "CORSRules": [{
+    "AllowedHeaders": ["*"],
+    "AllowedMethods": ["GET", "PUT", "POST", "HEAD"],
+    "AllowedOrigins": ["*"],
+    "ExposeHeaders": ["ETag", "x-amz-request-id"],
+    "MaxAgeSeconds": 3000
+  }]
+}
+EOF
+
+aws s3api put-bucket-cors \
+  --bucket $IMAGES_BUCKET \
+  --cors-configuration file://cors.json
+```
+
+#### Setup Lifecycle Policy
+
+```bash
+cat > lifecycle.json << 'EOF'
+{
+  "Rules": [{
+    "Id": "DeleteOldVersions",
+    "Status": "Enabled",
+    "NoncurrentVersionExpiration": {
+      "NoncurrentDays": 30
+    }
+  }]
+}
+EOF
+
+aws s3api put-bucket-lifecycle-configuration \
+  --bucket $IMAGES_BUCKET \
+  --lifecycle-configuration file://lifecycle.json
+```
 
 ---
-### Step 5: Provision Amazon Cognito User Pool
 
-Amazon Cognito manages user registration, login, and JWT access token issuance to secure API endpoints.
+### Step 4: Create SQS Queue
 
-Run the automated Cognito setup script:
 ```bash
-bash scripts/setup-cognito.sh us-east-1
+# Queue for image processing
+QUEUE_URL=$(aws sqs create-queue \
+  --queue-name tsl-signmap-image-processing \
+  --attributes '{
+    "VisibilityTimeout": "900",
+    "MessageRetentionPeriod": "345600",
+    "ReceiveMessageWaitTimeSeconds": "20"
+  }' \
+  --region us-east-1 \
+  --query 'QueueUrl' \
+  --output text)
+
+# Dead Letter Queue
+DLQ_URL=$(aws sqs create-queue \
+  --queue-name tsl-signmap-image-processing-dlq \
+  --region us-east-1 \
+  --query 'QueueUrl' \
+  --output text)
+
+# Get DLQ ARN
+DLQ_ARN=$(aws sqs get-queue-attributes \
+  --queue-url $DLQ_URL \
+  --attribute-names QueueArn \
+  --query 'Attributes.QueueArn' \
+  --output text)
+
+# Configure redrive policy
+aws sqs set-queue-attributes \
+  --queue-url $QUEUE_URL \
+  --attributes "{
+    \"RedrivePolicy\": \"{\\\"deadLetterTargetArn\\\":\\\"$DLQ_ARN\\\",\\\"maxReceiveCount\\\":\\\"3\\\"}\"
+  }"
+
+echo "Queue URL: $QUEUE_URL"
+echo "DLQ ARN: $DLQ_ARN"
 ```
 
-The script performs the following actions:
-1. Creates a Cognito User Pool named `student-portal-user-pool`.
-2. Creates an App Client for React integration (without a client secret since it runs in a web browser).
-3. Creates 3 User Groups (Cognito Groups): `Admin`, `Teacher`, and `Student`.
-4. Creates a default administrator account:
-   - **Username**: `admin@example.com`
-   - **Temporary Password**: `Abc12345!` (you will be prompted to change this on your first login).
-
-**Important Note**: Once the script completes, record the **UserPoolId** and **AppClientId** outputs to use in subsequent configuration steps.
-
-![Cognito User Pool](/images/5-Workshop/student-portal/cognito.png)
+**Queue Configuration:**
+- Visibility Timeout: 15 minutes (for AI inference)
+- Message Retention: 4 days
+- Max Receive Count: 3 times → DLQ
+- Long Polling: 20 seconds
 
 ---
-### Step 6: Verify Email Address with Amazon SES
 
-**Amazon SES (Simple Email Service)** is used to send automated email notifications (new account credentials, grade updates) to students and teachers.
+### Step 5: Setup Cognito User Pool
 
-> [!WARNING]
-> By default, new AWS accounts start in **Sandbox** mode. In Sandbox mode, you can only send emails to **verified** addresses. Limits: **200 emails/24-hour period**, **1 email/second**.
-
-#### 1. Verify Sender Email Identity
-Go to **SES Console → Configuration → Identities → Create identity**, select **Email address**, and enter your sender email:
 ```bash
-aws ses verify-email-identity --email-address your-sender@example.com --region us-east-1
-```
-Check your inbox and click the confirmation link from AWS.
+#!/bin/bash
 
-#### 2. Verify Recipient Email (while in Sandbox)
-Similarly, verify the recipient email (used for testing):
+# Create User Pool
+USER_POOL_ID=$(aws cognito-idp create-user-pool \
+  --pool-name tsl-signmap-users \
+  --policies '{
+    "PasswordPolicy": {
+      "MinimumLength": 8,
+      "RequireUppercase": true,
+      "RequireLowercase": true,
+      "RequireNumbers": true,
+      "RequireSymbols": false
+    }
+  }' \
+  --auto-verified-attributes email \
+  --mfa-configuration OPTIONAL \
+  --account-recovery-setting '{
+    "RecoveryMechanisms": [{
+      "Priority": 1,
+      "Name": "verified_email"
+    }]
+  }' \
+  --user-attribute-update-settings '{
+    "AttributesRequireVerificationBeforeUpdate": ["email"]
+  }' \
+  --query 'UserPool.Id' \
+  --output text)
+
+echo "User Pool ID: $USER_POOL_ID"
+
+# Create App Client
+CLIENT_ID=$(aws cognito-idp create-user-pool-client \
+  --user-pool-id $USER_POOL_ID \
+  --client-name tsl-signmap-mobile-client \
+  --no-generate-secret \
+  --explicit-auth-flows \
+    ALLOW_USER_PASSWORD_AUTH \
+    ALLOW_USER_SRP_AUTH \
+    ALLOW_REFRESH_TOKEN_AUTH \
+  --access-token-validity 60 \
+  --id-token-validity 60 \
+  --refresh-token-validity 30 \
+  --token-validity-units '{
+    "AccessToken": "minutes",
+    "IdToken": "minutes",
+    "RefreshToken": "days"
+  }' \
+  --query 'UserPoolClient.ClientId' \
+  --output text)
+
+echo "Client ID: $CLIENT_ID"
+
+# Create User Groups
+for group in Admin Contributor Driver; do
+  aws cognito-idp create-group \
+    --user-pool-id $USER_POOL_ID \
+    --group-name $group \
+    --description "$group role for TSL-SignMap"
+done
+
+# Create test admin user
+aws cognito-idp admin-create-user \
+  --user-pool-id $USER_POOL_ID \
+  --username admin@tsl-signmap.com \
+  --user-attributes \
+    Name=email,Value=admin@tsl-signmap.com \
+    Name=email_verified,Value=true \
+  --temporary-password "TempPass123" \
+  --message-action SUPPRESS
+
+# Add to Admin group
+aws cognito-idp admin-add-user-to-group \
+  --user-pool-id $USER_POOL_ID \
+  --username admin@tsl-signmap.com \
+  --group-name Admin
+
+echo "Admin user created: admin@tsl-signmap.com / TempPass123"
+```
+
+**Save credentials:**
+```
+UserPoolId: ap-southeast-1_XXXXXXXXX
+ClientId: 7n8g9hcus0ehbmk91bcreuplbv
+Admin: admin@tsl-signmap.com
+Password: TempPass123 (temporary)
+```
+
+---
+
+### Step 6: Setup Amazon Location Service
+
 ```bash
-aws ses verify-email-identity --email-address recipient@example.com --region us-east-1
+# Create Place Index for geocoding
+aws location create-place-index \
+  --index-name TSL-SignMap-PlaceIndex \
+  --data-source Esri \
+  --pricing-plan RequestBasedUsage \
+  --region us-east-1
+
+# Create Route Calculator
+aws location create-route-calculator \
+  --calculator-name TSL-RouteCalculator \
+  --data-source Esri \
+  --pricing-plan RequestBasedUsage \
+  --region us-east-1
+
+echo "Location Service configured"
 ```
 
-#### 3. Confirm SES Account Status
-Go to **SES Console → Account dashboard** to verify:
-- **Region**: US East (N. Virginia)
-- **Status**: ✅ Healthy
-- **Daily sending quota**: 200 emails/24-hour period
-- **Maximum send rate**: 1 email per second
+---
 
-![Amazon SES Account Dashboard](/images/5-Workshop/student-portal/ses-dashboard.png)
+### Environment Variables
 
-> [!TIP]
-> After completing the workshop, if you want to send real emails without restrictions, you can request AWS to **move out of Sandbox** by submitting a support request at SES Console → Account dashboard → **Request production access**.
+Create `.env` file for backend:
+
+```bash
+cat > backend/.env << EOF
+# AWS Configuration
+AWS_REGION=us-east-1
+AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+
+# DynamoDB Tables
+SIGNS_TABLE=tsl-signmap-TrafficSigns-dev
+USERS_TABLE=tsl-signmap-Users-dev
+VOTES_TABLE=tsl-signmap-Votes-dev
+
+# S3 Buckets
+IMAGES_BUCKET=tsl-signmap-images-$(aws sts get-caller-identity --query Account --output text)
+MODELS_BUCKET=tsl-signmap-models-$(aws sts get-caller-identity --query Account --output text)
+
+# SQS
+IMAGE_PROCESSING_QUEUE_URL=$QUEUE_URL
+
+# Cognito
+USER_POOL_ID=$USER_POOL_ID
+CLIENT_ID=$CLIENT_ID
+
+# Location Service
+PLACE_INDEX_NAME=TSL-SignMap-PlaceIndex
+ROUTE_CALCULATOR_NAME=TSL-RouteCalculator
+
+# Application
+COINS_PER_SUBMISSION=10
+COINS_PER_VOTE=1
+DAILY_VOTE_LIMIT=5
+AUTO_APPROVE_THRESHOLD=0.7
+AUTO_REJECT_THRESHOLD=0.3
+EOF
+
+echo ".env file created"
+```
+
+---
+
+### Verification Checklist
+
+```bash
+#!/bin/bash
+# Script: verify-infrastructure.sh
+
+echo "✓ Checking DynamoDB tables..."
+aws dynamodb list-tables --region us-east-1 | grep tsl-signmap
+
+echo "✓ Checking S3 buckets..."
+aws s3 ls | grep tsl-signmap
+
+echo "✓ Checking SQS queues..."
+aws sqs list-queues --region us-east-1 | grep tsl-signmap
+
+echo "✓ Checking Cognito User Pool..."
+aws cognito-idp list-user-pools --max-results 10 --region us-east-1 | grep tsl-signmap
+
+echo "✓ Checking Location Service..."
+aws location list-place-indexes --region us-east-1
+
+echo "Infrastructure verification complete!"
+```
+
+**Expected Output:**
+```
+✓ 3/3 DynamoDB tables created
+✓ 2/2 S3 buckets configured
+✓ SQS queue with DLQ ready
+✓ Cognito User Pool with 3 groups
+✓ Location Service indexes created
+```
+
+---
+
+### Cost Estimation (Monthly)
+
+| Service | Configuration | Estimated Cost |
+|---------|---------------|----------------|
+| DynamoDB | On-Demand, 3 tables, 1M reads, 100K writes | $1.50 |
+| S3 | 100K images (50GB) | $1.15 |
+| SQS | 100K messages | $0.04 |
+| Cognito | 5K MAU | $0 (free tier) |
+| Location Service | 100K geocoding requests | $5 |
+| **TOTAL** | | **~$7.69/month** |
+
+**Note:** Actual costs depend on usage. On-Demand billing scales with traffic.
+
+---
+
+### Next: Deploy Backend API
+
+```bash
+# Move to next step
+cd ../5.4-backend-apigateway/
+```
+

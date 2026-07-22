@@ -1,242 +1,349 @@
 ---
-title : "Prerequiste"
-date : 2026 
-weight : 2 
-chapter : false
-pre : " <b> 5.2. </b> "
+title: "Preparation Steps"
+date: 2026-07-10
+weight: 2
+chapter: false
 ---
 
-#### IAM permissions
-Add the following IAM permission policy to your user account to deploy and cleanup this workshop.
+### System Requirements
+
+| Tool | Version | Purpose |
+|------|---------|---------|
+| Node.js | ≥ 18.x | Lambda runtime and Frontend build |
+| npm | ≥ 9.x | JavaScript package manager |
+| Python | ≥ 3.9 | Lambda functions and ML scripts |
+| AWS CLI | v2 | Deploy and manage AWS resources |
+| AWS SAM CLI | Latest | Deploy serverless applications |
+| Git | Latest | Version control |
+
+---
+
+### 1. Install Tools
+
+#### Node.js & npm
+```bash
+# Download: https://nodejs.org/
+# Choose LTS version, Add to PATH
+
+# Verify
+node --version  # v18.x or higher
+npm --version   # v9.x or higher
 ```
+
+#### Python
+```bash
+# Download: https://www.python.org/downloads/
+# Check: Add Python to PATH
+
+# Install required packages
+pip install boto3 pillow ultralytics geohash2
+
+# Verify
+python --version  # 3.9 or higher
+pip --version
+```
+
+#### AWS CLI
+```bash
+# Windows: https://awscli.amazonaws.com/AWSCLIV2.msi
+# macOS: brew install awscli
+# Linux: https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2.html
+
+# Verify
+aws --version  # aws-cli/2.x
+```
+
+#### AWS SAM CLI
+```bash
+# Windows: https://github.com/aws/aws-sam-cli/releases/latest/download/AWS_SAM_CLI_64_PY3.msi
+# macOS: brew install aws-sam-cli
+# Linux: pip install aws-sam-cli
+
+# Verify
+sam --version  # SAM CLI, version 1.x
+```
+
+---
+
+### 2. Configure AWS Credentials
+
+#### Step 1: Create IAM User with appropriate permissions
+```
+AWS Console → IAM → Users → Create user
+→ Attach policies: AdministratorAccess (for workshop)
+→ Security credentials → Create access key 
+→ CLI → Create → Download CSV
+```
+
+#### Step 2: Configure AWS CLI
+```bash
+aws configure
+
+# Enter information:
+AWS Access Key ID: AKIA************
+AWS Secret Access Key: **********************
+Default region name: ap-southeast-1  # Or us-east-1
+Default output format: json
+```
+
+#### Step 3: Verify
+```bash
+aws sts get-caller-identity
+
+# Output:
 {
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Sid": "VisualEditor0",
-            "Effect": "Allow",
-            "Action": [
-                "cloudformation:*",
-                "cloudwatch:*",
-                "ec2:AcceptTransitGatewayPeeringAttachment",
-                "ec2:AcceptTransitGatewayVpcAttachment",
-                "ec2:AllocateAddress",
-                "ec2:AssociateAddress",
-                "ec2:AssociateIamInstanceProfile",
-                "ec2:AssociateRouteTable",
-                "ec2:AssociateSubnetCidrBlock",
-                "ec2:AssociateTransitGatewayRouteTable",
-                "ec2:AssociateVpcCidrBlock",
-                "ec2:AttachInternetGateway",
-                "ec2:AttachNetworkInterface",
-                "ec2:AttachVolume",
-                "ec2:AttachVpnGateway",
-                "ec2:AuthorizeSecurityGroupEgress",
-                "ec2:AuthorizeSecurityGroupIngress",
-                "ec2:CreateClientVpnEndpoint",
-                "ec2:CreateClientVpnRoute",
-                "ec2:CreateCustomerGateway",
-                "ec2:CreateDhcpOptions",
-                "ec2:CreateFlowLogs",
-                "ec2:CreateInternetGateway",
-                "ec2:CreateLaunchTemplate",
-                "ec2:CreateNetworkAcl",
-                "ec2:CreateNetworkInterface",
-                "ec2:CreateNetworkInterfacePermission",
-                "ec2:CreateRoute",
-                "ec2:CreateRouteTable",
-                "ec2:CreateSecurityGroup",
-                "ec2:CreateSubnet",
-                "ec2:CreateSubnetCidrReservation",
-                "ec2:CreateTags",
-                "ec2:CreateTransitGateway",
-                "ec2:CreateTransitGatewayPeeringAttachment",
-                "ec2:CreateTransitGatewayPrefixListReference",
-                "ec2:CreateTransitGatewayRoute",
-                "ec2:CreateTransitGatewayRouteTable",
-                "ec2:CreateTransitGatewayVpcAttachment",
-                "ec2:CreateVpc",
-                "ec2:CreateVpcEndpoint",
-                "ec2:CreateVpcEndpointConnectionNotification",
-                "ec2:CreateVpcEndpointServiceConfiguration",
-                "ec2:CreateVpnConnection",
-                "ec2:CreateVpnConnectionRoute",
-                "ec2:CreateVpnGateway",
-                "ec2:DeleteCustomerGateway",
-                "ec2:DeleteFlowLogs",
-                "ec2:DeleteInternetGateway",
-                "ec2:DeleteNetworkInterface",
-                "ec2:DeleteNetworkInterfacePermission",
-                "ec2:DeleteRoute",
-                "ec2:DeleteRouteTable",
-                "ec2:DeleteSecurityGroup",
-                "ec2:DeleteSubnet",
-                "ec2:DeleteSubnetCidrReservation",
-                "ec2:DeleteTags",
-                "ec2:DeleteTransitGateway",
-                "ec2:DeleteTransitGatewayPeeringAttachment",
-                "ec2:DeleteTransitGatewayPrefixListReference",
-                "ec2:DeleteTransitGatewayRoute",
-                "ec2:DeleteTransitGatewayRouteTable",
-                "ec2:DeleteTransitGatewayVpcAttachment",
-                "ec2:DeleteVpc",
-                "ec2:DeleteVpcEndpoints",
-                "ec2:DeleteVpcEndpointServiceConfigurations",
-                "ec2:DeleteVpnConnection",
-                "ec2:DeleteVpnConnectionRoute",
-                "ec2:Describe*",
-                "ec2:DetachInternetGateway",
-                "ec2:DisassociateAddress",
-                "ec2:DisassociateRouteTable",
-                "ec2:GetLaunchTemplateData",
-                "ec2:GetTransitGatewayAttachmentPropagations",
-                "ec2:ModifyInstanceAttribute",
-                "ec2:ModifySecurityGroupRules",
-                "ec2:ModifyTransitGatewayVpcAttachment",
-                "ec2:ModifyVpcAttribute",
-                "ec2:ModifyVpcEndpoint",
-                "ec2:ReleaseAddress",
-                "ec2:ReplaceRoute",
-                "ec2:RevokeSecurityGroupEgress",
-                "ec2:RevokeSecurityGroupIngress",
-                "ec2:RunInstances",
-                "ec2:StartInstances",
-                "ec2:StopInstances",
-                "ec2:UpdateSecurityGroupRuleDescriptionsEgress",
-                "ec2:UpdateSecurityGroupRuleDescriptionsIngress",
-                "iam:AddRoleToInstanceProfile",
-                "iam:AttachRolePolicy",
-                "iam:CreateInstanceProfile",
-                "iam:CreatePolicy",
-                "iam:CreateRole",
-                "iam:DeleteInstanceProfile",
-                "iam:DeletePolicy",
-                "iam:DeleteRole",
-                "iam:DeleteRolePolicy",
-                "iam:DetachRolePolicy",
-                "iam:GetInstanceProfile",
-                "iam:GetPolicy",
-                "iam:GetRole",
-                "iam:GetRolePolicy",
-                "iam:ListPolicyVersions",
-                "iam:ListRoles",
-                "iam:PassRole",
-                "iam:PutRolePolicy",
-                "iam:RemoveRoleFromInstanceProfile",
-                "lambda:CreateFunction",
-                "lambda:DeleteFunction",
-                "lambda:DeleteLayerVersion",
-                "lambda:GetFunction",
-                "lambda:GetLayerVersion",
-                "lambda:InvokeFunction",
-                "lambda:PublishLayerVersion",
-                "logs:CreateLogGroup",
-                "logs:DeleteLogGroup",
-                "logs:DescribeLogGroups",
-                "logs:PutRetentionPolicy",
-                "route53:ChangeTagsForResource",
-                "route53:CreateHealthCheck",
-                "route53:CreateHostedZone",
-                "route53:CreateTrafficPolicy",
-                "route53:DeleteHostedZone",
-                "route53:DisassociateVPCFromHostedZone",
-                "route53:GetHostedZone",
-                "route53:ListHostedZones",
-                "route53domains:ListDomains",
-                "route53domains:ListOperations",
-                "route53domains:ListTagsForDomain",
-                "route53resolver:AssociateResolverEndpointIpAddress",
-                "route53resolver:AssociateResolverRule",
-                "route53resolver:CreateResolverEndpoint",
-                "route53resolver:CreateResolverRule",
-                "route53resolver:DeleteResolverEndpoint",
-                "route53resolver:DeleteResolverRule",
-                "route53resolver:DisassociateResolverEndpointIpAddress",
-                "route53resolver:DisassociateResolverRule",
-                "route53resolver:GetResolverEndpoint",
-                "route53resolver:GetResolverRule",
-                "route53resolver:ListResolverEndpointIpAddresses",
-                "route53resolver:ListResolverEndpoints",
-                "route53resolver:ListResolverRuleAssociations",
-                "route53resolver:ListResolverRules",
-                "route53resolver:ListTagsForResource",
-                "route53resolver:UpdateResolverEndpoint",
-                "route53resolver:UpdateResolverRule",
-                "s3:AbortMultipartUpload",
-                "s3:CreateBucket",
-                "s3:DeleteBucket",
-                "s3:DeleteObject",
-                "s3:GetAccountPublicAccessBlock",
-                "s3:GetBucketAcl",
-                "s3:GetBucketOwnershipControls",
-                "s3:GetBucketPolicy",
-                "s3:GetBucketPolicyStatus",
-                "s3:GetBucketPublicAccessBlock",
-                "s3:GetObject",
-                "s3:GetObjectVersion",
-                "s3:GetBucketVersioning",
-                "s3:ListAccessPoints",
-                "s3:ListAccessPointsForObjectLambda",
-                "s3:ListAllMyBuckets",
-                "s3:ListBucket",
-                "s3:ListBucketMultipartUploads",
-                "s3:ListBucketVersions",
-                "s3:ListJobs",
-                "s3:ListMultipartUploadParts",
-                "s3:ListMultiRegionAccessPoints",
-                "s3:ListStorageLensConfigurations",
-                "s3:PutAccountPublicAccessBlock",
-                "s3:PutBucketAcl",
-                "s3:PutBucketPolicy",
-                "s3:PutBucketPublicAccessBlock",
-                "s3:PutObject",
-                "secretsmanager:CreateSecret",
-                "secretsmanager:DeleteSecret",
-                "secretsmanager:DescribeSecret",
-                "secretsmanager:GetSecretValue",
-                "secretsmanager:ListSecrets",
-                "secretsmanager:ListSecretVersionIds",
-                "secretsmanager:PutResourcePolicy",
-                "secretsmanager:TagResource",
-                "secretsmanager:UpdateSecret",
-                "sns:ListTopics",
-                "ssm:DescribeInstanceProperties",
-                "ssm:DescribeSessions",
-                "ssm:GetConnectionStatus",
-                "ssm:GetParameters",
-                "ssm:ListAssociations",
-                "ssm:ResumeSession",
-                "ssm:StartSession",
-                "ssm:TerminateSession"
-            ],
-            "Resource": "*"
-        }
-    ]
+  "UserId": "AIDA************",
+  "Account": "123456789012",
+  "Arn": "arn:aws:iam::123456789012:user/your-name"
 }
-
 ```
 
-#### Provision resources using CloudFormation
+---
 
-In this lab, we will use **N.Virginia region (us-east-1)**.
+### 3. Clone TSL-SignMap Project
 
-To prepare the workshop environment, deploy this **CloudFormation Template** (click link): [PrivateLinkWorkshop ](https://us-east-1.console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/quickcreate?templateURL=https://s3.us-east-1.amazonaws.com/reinvent-endpoints-builders-session/Nested.yaml&stackName=PLCloudSetup). Accept all of the defaults when deploying the template. 
+```bash
+# Clone repository (example)
+git clone https://github.com/your-org/tsl-signmap.git
+cd tsl-signmap
 
-![create stack](/images/5-Workshop/5.2-Prerequisite/create-stack1.png)
+# Directory structure
+tsl-signmap/
+├── backend/              # Lambda functions
+│   ├── sign-submit/     # Submit sign API
+│   ├── sign-vote/       # Voting API
+│   ├── sign-query/      # Query signs by location
+│   └── ai-detection/    # YOLO inference
+├── frontend/            # React mobile web app
+│   ├── src/
+│   ├── public/
+│   └── package.json
+├── infrastructure/      # SAM/CloudFormation templates
+│   ├── template.yaml
+│   └── parameters.json
+├── ml/                  # Machine learning
+│   ├── yolo-model/
+│   └── training/
+└── scripts/            # Deployment scripts
+    ├── deploy-all.sh
+    └── cleanup.sh
+```
 
-+ Tick 2 acknowledgement boxes
-+ Choose **Create stack**
+---
 
-![create stack](/images/5-Workshop/5.2-Prerequisite/create-stack2.png)
+### 4. Required IAM Permissions
 
-The **ClouddFormation** deployment requires about 15 minutes to complete.
+IAM account needs the following permissions:
 
-![complete](/images/5-Workshop/5.2-Prerequisite/complete.png)
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "lambda:*",
+        "apigateway:*",
+        "dynamodb:*",
+        "s3:*",
+        "cognito-idp:*",
+        "sagemaker:*",
+        "sqs:*",
+        "sns:*",
+        "location:*",
+        "iam:CreateRole",
+        "iam:AttachRolePolicy",
+        "iam:PassRole",
+        "cloudformation:*",
+        "cloudwatch:*",
+        "logs:*"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
 
-+ **2 VPCs** have been created
+**Managed Policies:**
+- `AdministratorAccess` (recommended for workshop)
+- Or: `PowerUserAccess` + `IAMFullAccess`
 
-![vpcs](/images/5-Workshop/5.2-Prerequisite/vpcs.png)
+---
 
-+ **3 EC2s** have been created
+### 5. Setup Environment Variables
 
-![EC2](/images/5-Workshop/5.2-Prerequisite/ec2.png)
+Create `.env` file in root directory:
+
+```bash
+# AWS Configuration
+AWS_REGION=ap-southeast-1
+AWS_ACCOUNT_ID=123456789012
+
+# Project Configuration
+PROJECT_NAME=tsl-signmap
+ENVIRONMENT=dev
+
+# DynamoDB Tables
+SIGNS_TABLE=TSL-TrafficSigns-dev
+USERS_TABLE=TSL-Users-dev
+VOTES_TABLE=TSL-Votes-dev
+
+# S3 Buckets
+IMAGES_BUCKET=tsl-signmap-images-dev
+FRONTEND_BUCKET=tsl-signmap-frontend-dev
+
+# Cognito
+USER_POOL_NAME=TSL-SignMap-Users
+```
+
+```bash
+# Load environment variables
+export $(cat .env | xargs)
+```
+
+---
+
+### 6. Install Dependencies
+
+#### Backend Dependencies
+```bash
+cd backend
+
+# Install Node.js dependencies
+cd sign-submit && npm install && cd ..
+cd sign-vote && npm install && cd ..
+cd sign-query && npm install && cd ..
+
+# Install Python dependencies
+cd ai-detection
+pip install -r requirements.txt -t .
+cd ..
+```
+
+#### Frontend Dependencies
+```bash
+cd frontend
+npm install
+
+# Verify packages
+npm list react react-dom
+```
+
+---
+
+### 7. Verify Environment
+
+Run automated check script:
+
+```bash
+cd tsl-signmap
+bash scripts/check-environment.sh
+```
+
+**Expected output:**
+```
+✓ Node.js: v18.17.0
+✓ npm: v9.8.1
+✓ Python: 3.9.7
+✓ AWS CLI: 2.13.5
+✓ SAM CLI: 1.95.0
+✓ AWS Credentials: Configured
+✓ AWS Region: ap-southeast-1
+✓ IAM Permissions: Valid
+✓ Dependencies: Installed
+
+Environment check passed! Ready to deploy TSL-SignMap.
+```
+
+---
+
+### 8. Create S3 Buckets
+
+```bash
+# Images bucket
+aws s3 mb s3://tsl-signmap-images-dev \
+  --region ap-southeast-1
+
+# Frontend bucket
+aws s3 mb s3://tsl-signmap-frontend-dev \
+  --region ap-southeast-1
+
+# Enable versioning for images
+aws s3api put-bucket-versioning \
+  --bucket tsl-signmap-images-dev \
+  --versioning-configuration Status=Enabled
+
+# Enable CORS for images bucket
+aws s3api put-bucket-cors \
+  --bucket tsl-signmap-images-dev \
+  --cors-configuration file://config/cors.json
+```
+
+**cors.json:**
+```json
+{
+  "CORSRules": [
+    {
+      "AllowedOrigins": ["*"],
+      "AllowedMethods": ["GET", "PUT", "POST"],
+      "AllowedHeaders": ["*"],
+      "MaxAgeSeconds": 3000
+    }
+  ]
+}
+```
+
+---
+
+### Troubleshooting
+
+**Error: `aws: command not found`**
+```bash
+# Add AWS CLI to PATH
+export PATH=$PATH:/usr/local/bin
+
+# macOS/Linux: Add to ~/.bashrc or ~/.zshrc
+echo 'export PATH=$PATH:/usr/local/bin' >> ~/.bashrc
+```
+
+**Error: `Unable to locate credentials`**
+```bash
+# Check credentials file
+cat ~/.aws/credentials
+cat ~/.aws/config
+
+# Re-configure
+aws configure
+```
+
+**Error: `Access Denied` during deployment**
+```bash
+# Check IAM permissions
+aws iam get-user
+aws iam list-attached-user-policies --user-name YOUR_USERNAME
+
+# Test specific permission
+aws dynamodb list-tables
+aws s3 ls
+```
+
+**Error: `pip install` fails**
+```bash
+# Upgrade pip
+python -m pip install --upgrade pip
+
+# Use virtual environment
+python -m venv venv
+source venv/bin/activate  # macOS/Linux
+venv\Scripts\activate     # Windows
+pip install -r requirements.txt
+```
+
+---
+
+### Next Steps
+
+After completing preparation:
+1. ✅ [Create DynamoDB Tables & Infrastructure](../5.3-infrastructure-database/)
+2. ✅ [Deploy Backend & API Gateway](../5.4-backend-apigateway/)
+3. ✅ [Deploy Frontend Application](../5.5-frontend-deployment/)

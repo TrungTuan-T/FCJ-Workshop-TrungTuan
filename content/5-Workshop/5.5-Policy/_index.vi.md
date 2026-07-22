@@ -1,95 +1,364 @@
 ---
-title : "VPC Endpoint Policies"
-date : 2026
-weight : 5
-chapter : false
-pre : " <b> 5.5 </b> "
+title: "Triển khai Frontend"
+date: 2026-07-10
+weight: 5
+chapter: false
 ---
 
-Khi bạn tạo một Interface Endpoint  hoặc cổng, bạn có thể đính kèm một chính sách điểm cuối để kiểm soát quyền truy cập vào dịch vụ mà bạn đang kết nối. Chính sách VPC Endpoint là chính sách tài nguyên IAM mà bạn đính kèm vào điểm cuối. Nếu bạn không đính kèm chính sách khi tạo điểm cuối, thì AWS sẽ đính kèm chính sách mặc định cho bạn để cho phép toàn quyền truy cập vào dịch vụ thông qua điểm cuối.
+### Tổng quan
 
-Bạn có thể tạo chính sách chỉ hạn chế quyền truy cập vào các S3 bucket cụ thể. Điều này hữu ích nếu bạn chỉ muốn một số Bộ chứa S3 nhất định có thể truy cập được thông qua điểm cuối.
+Deploy React mobile web app lên S3 + CloudFront với Cognito authentication.
 
-Trong phần này, bạn sẽ tạo chính sách VPC Endpoint hạn chế quyền truy cập vào S3 bucket được chỉ định trong chính sách VPC Endpoint.
+**Tech Stack:**
+- React 18 + TypeScript
+- AWS Amplify
+- Mapbox/OpenStreetMap
+- Material-UI
 
-![endpoint diagram](/images/5-Workshop/5.5-Policy/s3-bucket-policy.png)
+---
 
-#### Kết nối tới EC2 và xác minh kết nối tới S3. 
+### Bước 1: Setup Frontend
 
-1. Bắt đầu một phiên AWS Session Manager mới trên máy chủ có tên là Test-Gateway-Endpoint. Từ phiên này, xác minh rằng bạn có thể liệt kê nội dung của bucket mà bạn đã tạo trong Phần 1: Truy cập S3 từ VPC.
+```bash
+cd frontend
 
+# Install dependencies
+npm install
+
+# Configure Amplify
+cat > src/aws-config.js << EOF
+export const awsConfig = {
+  Auth: {
+    region: 'us-east-1',
+    userPoolId: '${USER_POOL_ID}',
+    userPoolWebClientId: '${CLIENT_ID}'
+  },
+  API: {
+    endpoints: [{
+      name: 'TSLSignMapAPI',
+      endpoint: 'https://${API_ID}.execute-api.us-east-1.amazonaws.com/prod'
+    }]
+  }
+};
+EOF
 ```
-aws s3 ls s3://<your-bucket-name>
+
+---
+
+### Bước 2: Build Frontend
+
+```bash
+# Build production
+npm run build
+
+# Output in build/ directory
+ls -lh build/
 ```
-![test](/images/5-Workshop/5.5-Policy/test1.png)
 
-Nội dung của bucket bao gồm hai tệp có dung lượng 1GB đã được tải lên trước đó.
-
-2. Tạo một bucket S3 mới; tuân thủ mẫu đặt tên mà bạn đã sử dụng trong Phần 1, nhưng thêm '-2' vào tên. Để các trường khác là mặc định và nhấp vào **Create**.
-
-![create bucket](/images/5-Workshop/5.5-Policy/create-bucket.png)
-
-3. Tạo bucket thành công.
-
-![Success](/images/5-Workshop/5.5-Policy/create-bucket-success.png)
-
-Policy mặc định cho phép truy cập vào tất cả các S3 Buckets thông qua VPC endpoint.
-
-4. Trong giao diện **Edit Policy**, sao chép và dán theo policy sau, thay thế yourbucketname-2 với tên bucket thứ hai của bạn. Policy này sẽ cho phép truy cập đến bucket mới thông qua VPC endpoint, nhưng không cho phép truy cập đến các bucket còn lại. Chọn **Save** để kích hoạt policy.
-
-
+**Build output:**
 ```
+build/
+├── index.html
+├── static/
+│   ├── js/
+│   ├── css/
+│   └── media/
+└── manifest.json
+```
+
+---
+
+### Bước 3: Deploy to S3
+
+```bash
+FRONTEND_BUCKET="tsl-signmap-frontend-$(aws sts get-caller-identity --query Account --output text)"
+
+# Create bucket
+aws s3 mb s3://$FRONTEND_BUCKET
+
+# Enable static website hosting
+aws s3 website s3://$FRONTEND_BUCKET \
+  --index-document index.html \
+  --error-document index.html
+
+# Upload files
+aws s3 sync build/ s3://$FRONTEND_BUCKET/ \
+  --delete \
+  --cache-control "public, max-age=31536000, immutable" \
+  --exclude "*.html" \
+  --exclude "service-worker.js"
+
+# Upload HTML with no-cache
+aws s3 sync build/ s3://$FRONTEND_BUCKET/ \
+  --exclude "*" \
+  --include "*.html" \
+  --include "service-worker.js" \
+  --cache-control "no-cache, no-store, must-revalidate"
+```
+
+---
+
+### Bước 4: Setup CloudFront
+
+```bash
+# Create OAI
+OAI_ID=$(aws cloudfront create-cloud-front-origin-access-identity \
+  --cloud-front-origin-access-identity-config \
+    CallerReference=$(date +%s),Comment="TSL-SignMap OAI" \
+  --query 'CloudFrontOriginAccessIdentity.Id' \
+  --output text)
+
+# Create distribution
+cat > cloudfront-config.json << EOF
 {
-  "Id": "Policy1631305502445",
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Sid": "Stmt1631305501021",
-      "Action": "s3:*",
-      "Effect": "Allow",
-      "Resource": [
-      				"arn:aws:s3:::yourbucketname-2",
-       				"arn:aws:s3:::yourbucketname-2/*"
-       ],
-      "Principal": "*"
-    }
-  ]
+  "Comment": "TSL-SignMap Frontend",
+  "Enabled": true,
+  "Origins": {
+    "Quantity": 1,
+    "Items": [{
+      "Id": "S3-tsl-signmap",
+      "DomainName": "${FRONTEND_BUCKET}.s3.amazonaws.com",
+      "S3OriginConfig": {
+        "OriginAccessIdentity": "origin-access-identity/cloudfront/${OAI_ID}"
+      }
+    }]
+  },
+  "DefaultRootObject": "index.html",
+  "DefaultCacheBehavior": {
+    "TargetOriginId": "S3-tsl-signmap",
+    "ViewerProtocolPolicy": "redirect-to-https",
+    "AllowedMethods": {
+      "Quantity": 2,
+      "Items": ["GET", "HEAD"]
+    },
+    "Compress": true,
+    "MinTTL": 0,
+    "DefaultTTL": 86400,
+    "MaxTTL": 31536000
+  },
+  "CustomErrorResponses": {
+    "Quantity": 1,
+    "Items": [{
+      "ErrorCode": 404,
+      "ResponsePagePath": "/index.html",
+      "ResponseCode": "200",
+      "ErrorCachingMinTTL": 300
+    }]
+  }
 }
+EOF
+
+DISTRIBUTION_ID=$(aws cloudfront create-distribution \
+  --distribution-config file://cloudfront-config.json \
+  --query 'Distribution.Id' \
+  --output text)
+
+# Get CloudFront domain
+DOMAIN=$(aws cloudfront get-distribution \
+  --id $DISTRIBUTION_ID \
+  --query 'Distribution.DomainName' \
+  --output text)
+
+echo "Frontend URL: https://$DOMAIN"
 ```
 
-![custom policy](/images/5-Workshop/5.5-Policy/policy2.png)
+---
 
-Cấu hình policy thành công.
+### Bước 5: Update S3 Bucket Policy
 
-![success](/images/5-Workshop/5.5-Policy/success.png)
+```bash
+cat > bucket-policy.json << EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Sid": "AllowCloudFrontOAI",
+    "Effect": "Allow",
+    "Principal": {
+      "AWS": "arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${OAI_ID}"
+    },
+    "Action": "s3:GetObject",
+    "Resource": "arn:aws:s3:::${FRONTEND_BUCKET}/*"
+  }]
+}
+EOF
 
-5. Từ session của bạn trên Test-Gateway-Endpoint instance, kiểm tra truy cập đến S3 bucket bạn tạo ở bước đầu
-
+aws s3api put-bucket-policy \
+  --bucket $FRONTEND_BUCKET \
+  --policy file://bucket-policy.json
 ```
-aws s3 ls s3://<yourbucketname>
+
+---
+
+### Frontend Features
+
+**1. Authentication**
+```javascript
+// Login
+import { Auth } from 'aws-amplify';
+
+async function login(email, password) {
+  const user = await Auth.signIn(email, password);
+  return user;
+}
+
+// Get current user
+const user = await Auth.currentAuthenticatedUser();
+const token = user.signInUserSession.idToken.jwtToken;
 ```
 
-Câu lệnh trả về lỗi bởi vì truy cập vào S3 bucket không có quyền trong VPC endpoint policy.
+**2. Submit Sign**
+```javascript
+// Get upload URL
+const response = await fetch(
+  `${API_URL}/signs/upload-url?filename=sign.jpg`,
+  { headers: { Authorization: `Bearer ${token}` } }
+);
+const { uploadUrl, imageKey } = await response.json();
 
-![error](/images/5-Workshop/5.5-Policy/error.png)
+// Upload image to S3
+await fetch(uploadUrl, {
+  method: 'PUT',
+  body: imageFile,
+  headers: { 'Content-Type': 'image/jpeg' }
+});
 
-6. Trở lại home directory của bạn trên EC2 instance ```cd~```
+// Submit sign metadata
+await fetch(`${API_URL}/signs`, {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${token}`,
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    location: { lat, lng },
+    signType: 'stop',
+    imageKey
+  })
+});
+```
 
-+ Tạo file ```fallocate -l 1G test-bucket2.xyz ```
-+ Sao chép file lên bucket thứ  2 ```aws s3 cp test-bucket2.xyz s3://<your-2nd-bucket-name>```
+**3. Map Integration**
+```javascript
+import mapboxgl from 'mapbox-gl';
 
-![success](/images/5-Workshop/5.5-Policy/test2.png)
+const map = new mapboxgl.Map({
+  container: 'map',
+  style: 'mapbox://styles/mapbox/streets-v11',
+  center: [lng, lat],
+  zoom: 13
+});
 
-Thao tác này được cho phép bởi VPC endpoint policy.
+// Load nearby signs
+const response = await fetch(
+  `${API_URL}/signs/nearby?lat=${lat}&lng=${lng}&radius=2`,
+  { headers: { Authorization: `Bearer ${token}` } }
+);
+const signs = await response.json();
 
-![success](/images/5-Workshop/5.5-Policy/test2-success.png)
+// Add markers
+signs.forEach(sign => {
+  new mapboxgl.Marker()
+    .setLngLat([sign.location.lng, sign.location.lat])
+    .setPopup(new mapboxgl.Popup().setHTML(`<h3>${sign.signType}</h3>`))
+    .addTo(map);
+});
+```
 
-Sau đó chúng ta kiểm tra truy cập vào S3 bucket đầu tiên
+---
 
- ```aws s3 cp test-bucket2.xyz s3://<your-1st-bucket-name>```
+### Testing
 
- ![fail](/images/5-Workshop/5.5-Policy/test2-fail.png)
+```bash
+# Test locally
+npm start
 
- Câu lệnh xảy ra lỗi bởi vì bucket không có quyền truy cập bởi VPC endpoint policy.
+# Access at http://localhost:3000
 
-Trong phần này, bạn đã tạo chính sách VPC Endpoint cho Amazon S3 và sử dụng AWS CLI để kiểm tra chính sách. Các hoạt động AWS CLI liên quan đến bucket S3 ban đầu của bạn thất bại vì bạn áp dụng một chính sách chỉ cho phép truy cập đến bucket thứ hai mà bạn đã tạo. Các hoạt động AWS CLI nhắm vào bucket thứ hai của bạn thành công vì chính sách cho phép chúng. Những chính sách này có thể hữu ích trong các tình huống khi bạn cần kiểm soát quyền truy cập vào tài nguyên thông qua VPC Endpoint.
+# Test production build
+npm run build
+npx serve -s build -p 3000
+```
+
+**Manual Testing:**
+1. Navigate to CloudFront URL
+2. Register new account
+3. Verify email
+4. Login
+5. Submit traffic sign with photo
+6. View on map
+7. Vote on other signs
+8. Check coin balance
+
+---
+
+### CI/CD với GitHub Actions
+
+```yaml
+# .github/workflows/deploy.yml
+name: Deploy Frontend
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '18'
+      
+      - name: Install dependencies
+        run: npm ci
+        working-directory: ./frontend
+      
+      - name: Build
+        run: npm run build
+        working-directory: ./frontend
+      
+      - name: Deploy to S3
+        run: |
+          aws s3 sync build/ s3://${{ secrets.FRONTEND_BUCKET }}/ --delete
+        working-directory: ./frontend
+      
+      - name: Invalidate CloudFront
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ secrets.DISTRIBUTION_ID }} \
+            --paths "/*"
+```
+
+---
+
+### Performance Optimization
+
+| Technique | Implementation |
+|-----------|----------------|
+| Code splitting | React.lazy() for routes |
+| Image optimization | WebP format, lazy loading |
+| Caching | CloudFront + Service Worker |
+| Compression | Gzip/Brotli enabled |
+| CDN | CloudFront edge locations |
+
+---
+
+### Cost Estimate
+
+| Service | Usage | Cost/month |
+|---------|-------|------------|
+| S3 | 100MB storage, 100K requests | $0.50 |
+| CloudFront | 50GB transfer, 1M requests | $4.50 |
+| Route 53 (optional) | Hosted zone | $0.50 |
+| **Total** | | **$5.50/month** |
+
+---
+
+### Next: Testing
+
+```bash
+cd ../5.6-testing-cleanup/
+```
