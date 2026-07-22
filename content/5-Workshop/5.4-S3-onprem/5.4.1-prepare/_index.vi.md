@@ -1,263 +1,61 @@
 ---
-title: "Chuẩn bị Lambda Functions"
-date: 2026-07-10
+title: "Chuẩn bị tệp tĩnh Frontend & Tạo S3 Static Web Bucket"
+date: 2026-07-22
 weight: 1
 chapter: false
 ---
 
-### Tổng quan
+#### 1. Tổng quan Bước 5.4.1
 
-Chuẩn bị code và dependencies cho các Lambda functions của TSL-SignMap.
+Trong bước này, bạn sẽ thực hiện đóng gói ứng dụng **React Admin Web (`ADMIN.WEB`)** của hệ thống **TSL-SignMap** và khởi tạo bộ chứa **AWS S3 Bucket** được cấu hình chế độ **Static Website Hosting**.
 
----
-
-### Bước 1: Tạo Project Structure
-
-```bash
-mkdir -p backend/functions/{sign-submit,sign-query,sign-vote,sign-approve,user-profile,upload-url,ai-detection}
-
-# Structure
-backend/
-├── functions/
-│   ├── sign-submit/
-│   │   ├── index.js
-│   │   └── package.json
-│   ├── sign-query/
-│   ├── sign-vote/
-│   ├── sign-approve/
-│   ├── user-profile/
-│   ├── upload-url/
-│   └── ai-detection/
-└── shared/
-    ├── dynamodb.js
-    └── utils.js
-```
+- **S3 Bucket Name:** `tsl-signmap-production-static-web-ckroy7`
+- **Region:** Singapore (`ap-southeast-1`)
+- **Website Endpoint URL:** [http://tsl-signmap-production-static-web-ckroy7.s3-website-ap-southeast-1.amazonaws.com/](http://tsl-signmap-production-static-web-ckroy7.s3-website-ap-southeast-1.amazonaws.com/)
 
 ---
 
-### Bước 2: Install Dependencies
+#### 2. Quy Trình Thực Hiện Chi Tiết
 
-#### sign-submit Function
+##### Bước 1: Biên dịch mã nguồn React Admin Web
+1. Tại thư mục ứng dụng Frontend React, mở terminal và thực thi lệnh đóng gói:
+   ```bash
+   npm run build
+   ```
+2. Thư mục mã nguồn tĩnh `dist/` được tạo thành công chứa `index.html`, các tệp JavaScript bundle, CSS và các tài nguyên hình ảnh.
 
-```bash
-cd backend/functions/sign-submit
+##### Bước 2: Tạo AWS S3 Bucket
+1. Mở **AWS S3 Console**, bấm **Create bucket**.
+2. Bucket name: Nhập `tsl-signmap-production-static-web-ckroy7`.
+3. AWS Region: Chọn `ap-southeast-1` (Singapore).
+4. Object Ownership: Chọn **ACLs disabled (recommended)**.
+5. Block Public Access settings for this bucket:
+   - Tạm thời giữ mặc định để chuẩn bị cấu hình riêng với CloudFront Origin Access Control (OAC) ở bước tiếp theo.
+6. Bấm **Create bucket**.
 
-cat > package.json << 'EOF'
-{
-  "name": "sign-submit",
-  "version": "1.0.0",
-  "dependencies": {
-    "aws-sdk": "^2.1400.0",
-    "uuid": "^9.0.0",
-    "geohash": "^0.2.0"
-  }
-}
-EOF
+##### Bước 3: Cấu hình S3 Static Website Hosting
+1. Nhấp vào tên bucket `tsl-signmap-production-static-web-ckroy7` -> chuyển sang thẻ **Properties**.
+2. Cuộn xuống mục **Static website hosting**, chọn **Edit**.
+3. Chọn **Enable**.
+4. Hosting type: Chọn **Host a static website**.
+5. Index document: Nhập `index.html`.
+6. Error document: Nhập `index.html` (để hỗ trợ Client-side Routing cho ứng dụng Single Page Application React Router).
+7. Nhấn **Save changes**.
 
-npm install
-```
-
-#### sign-query Function
-
-```bash
-cd ../sign-query
-
-cat > package.json << 'EOF'
-{
-  "name": "sign-query",
-  "version": "1.0.0",
-  "dependencies": {
-    "aws-sdk": "^2.1400.0",
-    "geohash": "^0.2.0"
-  }
-}
-EOF
-
-npm install
-```
-
-#### sign-vote Function
-
-```bash
-cd ../sign-vote
-
-cat > package.json << 'EOF'
-{
-  "name": "sign-vote",
-  "version": "1.0.0",
-  "dependencies": {
-    "aws-sdk": "^2.1400.0",
-    "uuid": "^9.0.0"
-  }
-}
-EOF
-
-npm install
-```
+##### Bước 4: Tải tệp tĩnh `dist/` lên S3 Bucket
+1. Truy cập thẻ **Objects** trong S3 Bucket -> chọn **Upload**.
+2. Tải toàn bộ các tệp và thư mục con bên trong thư mục `dist/` lên S3 Bucket:
+   ```bash
+   aws s3 sync ./dist s3://tsl-signmap-production-static-web-ckroy7/
+   ```
+3. Bấm **Upload** và xác nhận hoàn tất.
 
 ---
 
-### Bước 3: Shared Utilities
+#### 3. Kiểm Tra Kết Nối
 
-```bash
-cd ../../shared
-
-cat > dynamodb.js << 'EOF'
-const AWS = require('aws-sdk');
-const dynamodb = new AWS.DynamoDB.DocumentClient();
-
-async function getItem(tableName, key) {
-  const params = {
-    TableName: tableName,
-    Key: key
-  };
-  const result = await dynamodb.get(params).promise();
-  return result.Item;
-}
-
-async function putItem(tableName, item) {
-  const params = {
-    TableName: tableName,
-    Item: item
-  };
-  await dynamodb.put(params).promise();
-  return item;
-}
-
-async function queryByGeoHash(tableName, geoHash) {
-  const params = {
-    TableName: tableName,
-    IndexName: 'GeoHash-index',
-    KeyConditionExpression: 'GeoHash = :gh',
-    ExpressionAttributeValues: {
-      ':gh': geoHash
-    }
-  };
-  const result = await dynamodb.query(params).promise();
-  return result.Items;
-}
-
-module.exports = { getItem, putItem, queryByGeoHash };
-EOF
-
-cat > utils.js << 'EOF'
-function response(statusCode, body) {
-  return {
-    statusCode,
-    headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*'
-    },
-    body: JSON.stringify(body)
-  };
-}
-
-function errorResponse(statusCode, message) {
-  return response(statusCode, { error: message });
-}
-
-module.exports = { response, errorResponse };
-EOF
+Sau khi tải tệp thành công, bạn có thể kiểm tra đường dẫn website tĩnh:
+```text
+http://tsl-signmap-production-static-web-ckroy7.s3-website-ap-southeast-1.amazonaws.com/
 ```
-
----
-
-### Bước 4: Environment Variables
-
-```bash
-cd ../../
-
-cat > .env << EOF
-# DynamoDB Tables
-SIGNS_TABLE=tsl-signmap-TrafficSigns-dev
-USERS_TABLE=tsl-signmap-Users-dev
-VOTES_TABLE=tsl-signmap-Votes-dev
-
-# S3 Buckets
-IMAGES_BUCKET=tsl-signmap-images-$(aws sts get-caller-identity --query Account --output text)
-
-# SQS
-QUEUE_URL=https://sqs.us-east-1.amazonaws.com/$(aws sts get-caller-identity --query Account --output text)/tsl-signmap-image-processing
-
-# Application Config
-COINS_PER_SUBMISSION=10
-COINS_PER_VOTE=1
-DAILY_VOTE_LIMIT=5
-EOF
-```
-
----
-
-### Bước 5: Tạo IAM Execution Role
-
-```bash
-cat > lambda-trust-policy.json << 'EOF'
-{
-  "Version": "2012-10-17",
-  "Statement": [{
-    "Effect": "Allow",
-    "Principal": { "Service": "lambda.amazonaws.com" },
-    "Action": "sts:AssumeRole"
-  }]
-}
-EOF
-
-aws iam create-role \
-  --role-name tsl-signmap-lambda-role \
-  --assume-role-policy-document file://lambda-trust-policy.json
-
-# Attach basic execution role
-aws iam attach-role-policy \
-  --role-name tsl-signmap-lambda-role \
-  --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-
-# Create custom policy
-cat > lambda-permissions.json << 'EOF'
-{
-  "Version": "2012-10-17",
-  "Statement": [{
-    "Effect": "Allow",
-    "Action": [
-      "dynamodb:GetItem",
-      "dynamodb:PutItem",
-      "dynamodb:UpdateItem",
-      "dynamodb:Query",
-      "dynamodb:Scan",
-      "s3:GetObject",
-      "s3:PutObject",
-      "s3:PutObjectAcl",
-      "sqs:SendMessage",
-      "sqs:ReceiveMessage",
-      "sqs:DeleteMessage"
-    ],
-    "Resource": "*"
-  }]
-}
-EOF
-
-aws iam put-role-policy \
-  --role-name tsl-signmap-lambda-role \
-  --policy-name TSLPermissions \
-  --policy-document file://lambda-permissions.json
-```
-
----
-
-### Verification
-
-```bash
-# Check structure
-tree backend/functions -L 2
-
-# Check dependencies
-cd backend/functions/sign-submit && npm list
-
-# Check IAM role
-aws iam get-role --role-name tsl-signmap-lambda-role
-```
-
----
-
-### Next Step
-
-Tiếp tục với [Deploy Lambda Functions](../5.4.2-create-interface-enpoint/)
+Giao diện React Admin Web khởi chạy thành công và sẵn sàng để tích hợp CDN ở bước 5.4.2.

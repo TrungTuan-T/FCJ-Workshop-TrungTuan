@@ -1,270 +1,52 @@
 ---
-title: "Setup API Gateway"
-date: 2026-07-10
+title: "Tích hợp Chứng chỉ SSL HTTPS với AWS Certificate Manager (ACM)"
+date: 2026-07-22
 weight: 3
 chapter: false
 ---
 
-### Tổng quan
+#### 1. Tổng quan Bước 5.4.3
 
-Tạo REST API Gateway với Cognito Authorizer cho TSL-SignMap.
+Trong bước này, bạn sẽ tích hợp chứng chỉ bảo mật **SSL/TLS miễn phí từ AWS Certificate Manager (ACM)** vào phân phối **CloudFront CDN** để đảm bảo toàn bộ lưu lượng truy cập giao diện **TSL-SignMap React Admin Web** được mã hóa bảo mật ở cổng 443 (HTTPS).
 
----
-
-### Bước 1: Tạo REST API
-
-```bash
-API_ID=$(aws apigateway create-rest-api \
-  --name tsl-signmap-api \
-  --description "TSL-SignMap Backend API" \
-  --endpoint-configuration types=REGIONAL \
-  --query 'id' \
-  --output text)
-
-echo "API ID: $API_ID"
-
-# Get root resource
-ROOT_ID=$(aws apigateway get-resources \
-  --rest-api-id $API_ID \
-  --query 'items[0].id' \
-  --output text)
-```
+- **Lưu ý:** Chứng chỉ ACM dành cho CloudFront CDN phải bắt buộc được khởi tạo tại AWS Region **us-east-1 (N. Virginia)**.
 
 ---
 
-### Bước 2: Tạo Cognito Authorizer
+#### 2. Quy Trình Thực Hiện Chi Tiết
 
-```bash
-# Get User Pool ARN
-USER_POOL_ARN=$(aws cognito-idp describe-user-pool \
-  --user-pool-id $USER_POOL_ID \
-  --query 'UserPool.Arn' \
-  --output text)
+##### Bước 1: Yêu cầu chứng chỉ SSL/TLS trên AWS Certificate Manager (ACM)
+1. Mở **AWS Certificate Manager Console**, đổi Region trên góc phải thành **us-east-1 (N. Virginia)**.
+2. Bấm **Request a certificate** -> chọn **Request a public certificate** -> bấm **Next**.
+3. Fully qualified domain name: Nhập tên miền ứng dụng (ví dụ: `admin.tsl-signmap.com` hoặc `*.tsl-signmap.com`).
+4. Validation method: Chọn **DNS validation (recommended)**.
+5. Key algorithm: Chọn **RSA 2048**.
+6. Bấm **Request**.
 
-# Create authorizer
-AUTHORIZER_ID=$(aws apigateway create-authorizer \
-  --rest-api-id $API_ID \
-  --name TSLCognitoAuthorizer \
-  --type COGNITO_USER_POOLS \
-  --provider-arns $USER_POOL_ARN \
-  --identity-source method.request.header.Authorization \
-  --query 'id' \
-  --output text)
+##### Bước 2: Xác minh tên miền qua Amazon Route 53
+1. Chọn chứng chỉ vừa tạo trong trang danh sách ACM.
+2. Tại mục **Domains**, bấm nút **Create records in Route 53**.
+3. Hệ thống tự động thêm bản ghi CNAME xác minh tên miền vào Hosted Zone trên Amazon Route 53.
+4. Chờ 1 - 3 phút để trạng thái chứng chỉ chuyển sang **Issued (Đã cấp)**.
 
-echo "Authorizer ID: $AUTHORIZER_ID"
-```
-
----
-
-### Bước 3: Tạo Resources & Methods
-
-#### /signs Resource
-
-```bash
-# Create /signs resource
-SIGNS_ID=$(aws apigateway create-resource \
-  --rest-api-id $API_ID \
-  --parent-id $ROOT_ID \
-  --path-part signs \
-  --query 'id' \
-  --output text)
-
-# POST /signs method
-aws apigateway put-method \
-  --rest-api-id $API_ID \
-  --resource-id $SIGNS_ID \
-  --http-method POST \
-  --authorization-type COGNITO_USER_POOLS \
-  --authorizer-id $AUTHORIZER_ID
-
-# Integration với Lambda
-aws apigateway put-integration \
-  --rest-api-id $API_ID \
-  --resource-id $SIGNS_ID \
-  --http-method POST \
-  --type AWS_PROXY \
-  --integration-http-method POST \
-  --uri "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:$(aws sts get-caller-identity --query Account --output text):function:tsl-signmap-sign-submit/invocations"
-
-# Grant permission
-aws lambda add-permission \
-  --function-name tsl-signmap-sign-submit \
-  --statement-id apigateway-post-signs \
-  --action lambda:InvokeFunction \
-  --principal apigateway.amazonaws.com \
-  --source-arn "arn:aws:execute-api:us-east-1:$(aws sts get-caller-identity --query Account --output text):$API_ID/*/POST/signs"
-```
-
-#### /signs/nearby Resource
-
-```bash
-# Create /signs/nearby
-NEARBY_ID=$(aws apigateway create-resource \
-  --rest-api-id $API_ID \
-  --parent-id $SIGNS_ID \
-  --path-part nearby \
-  --query 'id' \
-  --output text)
-
-# GET method
-aws apigateway put-method \
-  --rest-api-id $API_ID \
-  --resource-id $NEARBY_ID \
-  --http-method GET \
-  --authorization-type COGNITO_USER_POOLS \
-  --authorizer-id $AUTHORIZER_ID \
-  --request-parameters method.request.querystring.lat=true,method.request.querystring.lng=true,method.request.querystring.radius=false
-
-# Integration
-aws apigateway put-integration \
-  --rest-api-id $API_ID \
-  --resource-id $NEARBY_ID \
-  --http-method GET \
-  --type AWS_PROXY \
-  --integration-http-method POST \
-  --uri "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:$(aws sts get-caller-identity --query Account --output text):function:tsl-signmap-sign-query/invocations"
-
-aws lambda add-permission \
-  --function-name tsl-signmap-sign-query \
-  --statement-id apigateway-get-nearby \
-  --action lambda:InvokeFunction \
-  --principal apigateway.amazonaws.com
-```
-
-#### /votes Resource
-
-```bash
-# Create /votes
-VOTES_ID=$(aws apigateway create-resource \
-  --rest-api-id $API_ID \
-  --parent-id $ROOT_ID \
-  --path-part votes \
-  --query 'id' \
-  --output text)
-
-# POST method
-aws apigateway put-method \
-  --rest-api-id $API_ID \
-  --resource-id $VOTES_ID \
-  --http-method POST \
-  --authorization-type COGNITO_USER_POOLS \
-  --authorizer-id $AUTHORIZER_ID
-
-# Integration
-aws apigateway put-integration \
-  --rest-api-id $API_ID \
-  --resource-id $VOTES_ID \
-  --http-method POST \
-  --type AWS_PROXY \
-  --integration-http-method POST \
-  --uri "arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:$(aws sts get-caller-identity --query Account --output text):function:tsl-signmap-sign-vote/invocations"
-
-aws lambda add-permission \
-  --function-name tsl-signmap-sign-vote \
-  --statement-id apigateway-post-votes \
-  --action lambda:InvokeFunction \
-  --principal apigateway.amazonaws.com
-```
+##### Bước 3: Đính kèm Chứng chỉ ACM vào CloudFront Distribution
+1. Chuyển sang **AWS CloudFront Console**, chọn Distribution của bạn.
+2. Tại thẻ **General**, cuộn xuống mục **Settings** -> chọn **Edit**.
+3. **Alternate domain name (CNAME):** Nhập `admin.tsl-signmap.com`.
+4. **Custom SSL certificate:** Chọn chứng chỉ ACM vừa được cấp (`admin.tsl-signmap.com`).
+5. Minimum TLS version: Chọn **TLSv1.2_2021 (recommended)**.
+6. Bấm **Save changes**.
 
 ---
 
-### Bước 4: Deploy API
+#### 3. Kiểm Tra Kết Nối Bảo Mật
 
-```bash
-# Create deployment
-aws apigateway create-deployment \
-  --rest-api-id $API_ID \
-  --stage-name prod \
-  --description "Production deployment"
-
-# Get API URL
-API_URL="https://$API_ID.execute-api.us-east-1.amazonaws.com/prod"
-echo "API URL: $API_URL"
-```
-
----
-
-### Bước 5: Enable CORS
-
-```bash
-# Enable CORS cho tất cả resources
-for RESOURCE_ID in $SIGNS_ID $NEARBY_ID $VOTES_ID; do
-  aws apigateway put-method \
-    --rest-api-id $API_ID \
-    --resource-id $RESOURCE_ID \
-    --http-method OPTIONS \
-    --authorization-type NONE
-
-  aws apigateway put-integration \
-    --rest-api-id $API_ID \
-    --resource-id $RESOURCE_ID \
-    --http-method OPTIONS \
-    --type MOCK \
-    --request-templates '{"application/json":"{\"statusCode\": 200}"}'
-
-  aws apigateway put-method-response \
-    --rest-api-id $API_ID \
-    --resource-id $RESOURCE_ID \
-    --http-method OPTIONS \
-    --status-code 200 \
-    --response-parameters \
-      method.response.header.Access-Control-Allow-Headers=true,\
-      method.response.header.Access-Control-Allow-Methods=true,\
-      method.response.header.Access-Control-Allow-Origin=true
-
-  aws apigateway put-integration-response \
-    --rest-api-id $API_ID \
-    --resource-id $RESOURCE_ID \
-    --http-method OPTIONS \
-    --status-code 200 \
-    --response-parameters \
-      method.response.header.Access-Control-Allow-Headers="'Content-Type,Authorization'",\
-      method.response.header.Access-Control-Allow-Methods="'GET,POST,PUT,DELETE,OPTIONS'",\
-      method.response.header.Access-Control-Allow-Origin="'*'"
-done
-
-# Redeploy
-aws apigateway create-deployment \
-  --rest-api-id $API_ID \
-  --stage-name prod
-```
-
----
-
-### Testing
-
-```bash
-# Get token
-TOKEN=$(aws cognito-idp initiate-auth \
-  --client-id $CLIENT_ID \
-  --auth-flow USER_PASSWORD_AUTH \
-  --auth-parameters USERNAME=admin@tsl-signmap.com,PASSWORD=YourPassword \
-  --query 'AuthenticationResult.IdToken' \
-  --output text)
-
-# Test POST /signs
-curl -X POST $API_URL/signs \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "location": {"lat": 10.762622, "lng": 106.660172},
-    "signType": "stop",
-    "imageKey": "signs/test/image.jpg"
-  }'
-
-# Test GET /signs/nearby
-curl "$API_URL/signs/nearby?lat=10.76&lng=106.66&radius=5" \
-  -H "Authorization: Bearer $TOKEN"
-
-# Test POST /votes
-curl -X POST $API_URL/votes \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"signId": "sign_123", "voteType": "upvote"}'
-```
-
----
-
-### Next Step
-
-Tiếp tục với [Configure API Monitoring](../5.4.4-dns-simulation/)
+1. Mở terminal và thực thi lệnh cURL tới tên miền custom:
+   ```bash
+   curl -I https://admin.tsl-signmap.com
+   ```
+2. Kết quả trả về chứa các header bảo mật:
+   - `HTTP/2 200`
+   - `Server: CloudFront`
+   - `X-Cache: Hit from cloudfront`
+   - Biểu tượng khóa bảo mật HTTPS xuất hiện trên thanh địa chỉ trình duyệt.

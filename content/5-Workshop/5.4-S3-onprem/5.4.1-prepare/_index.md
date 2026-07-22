@@ -1,263 +1,61 @@
 ---
-title: "Prepare Lambda Functions"
-date: 2026-07-10
+title: "Prepare Frontend Static Assets & Create S3 Static Web Bucket"
+date: 2026-07-22
 weight: 1
 chapter: false
 ---
 
-### Overview
+#### 1. Step 5.4.1 Overview
 
-Prepare code and dependencies for TSL-SignMap Lambda functions.
+In this step, you will build and package the **TSL-SignMap** system **React Admin Web (`ADMIN.WEB`)** frontend application and provision an **AWS S3 Bucket** configured for **Static Website Hosting**.
 
----
-
-### Step 1: Create Project Structure
-
-```bash
-mkdir -p backend/functions/{sign-submit,sign-query,sign-vote,sign-approve,user-profile,upload-url,ai-detection}
-
-# Structure
-backend/
-├── functions/
-│   ├── sign-submit/
-│   │   ├── index.js
-│   │   └── package.json
-│   ├── sign-query/
-│   ├── sign-vote/
-│   ├── sign-approve/
-│   ├── user-profile/
-│   ├── upload-url/
-│   └── ai-detection/
-└── shared/
-    ├── dynamodb.js
-    └── utils.js
-```
+- **S3 Bucket Name:** `tsl-signmap-production-static-web-ckroy7`
+- **Region:** Singapore (`ap-southeast-1`)
+- **Website Endpoint URL:** [http://tsl-signmap-production-static-web-ckroy7.s3-website-ap-southeast-1.amazonaws.com/](http://tsl-signmap-production-static-web-ckroy7.s3-website-ap-southeast-1.amazonaws.com/)
 
 ---
 
-### Step 2: Install Dependencies
+#### 2. Step-by-Step Implementation
 
-#### sign-submit Function
+##### Step 1: Build React Admin Web Frontend
+1. Open terminal inside the React frontend repository directory and run build packaging:
+   ```bash
+   npm run build
+   ```
+2. The compiled static output directory `dist/` is generated containing `index.html`, JavaScript bundles, CSS stylesheets, and UI media assets.
 
-```bash
-cd backend/functions/sign-submit
+##### Step 2: Create AWS S3 Bucket
+1. Open **AWS S3 Console** and click **Create bucket**.
+2. Bucket name: Enter `tsl-signmap-production-static-web-ckroy7`.
+3. AWS Region: Select `ap-southeast-1` (Singapore).
+4. Object Ownership: Select **ACLs disabled (recommended)**.
+5. Block Public Access settings:
+   - Retain default block public access settings to prepare for CloudFront Origin Access Control (OAC) setup in the next exercise.
+6. Click **Create bucket**.
 
-cat > package.json << 'EOF'
-{
-  "name": "sign-submit",
-  "version": "1.0.0",
-  "dependencies": {
-    "aws-sdk": "^2.1400.0",
-    "uuid": "^9.0.0",
-    "geohash": "^0.2.0"
-  }
-}
-EOF
+##### Step 3: Configure S3 Static Website Hosting
+1. Click bucket name `tsl-signmap-production-static-web-ckroy7` -> select **Properties** tab.
+2. Scroll to **Static website hosting** section and click **Edit**.
+3. Select **Enable**.
+4. Hosting type: Select **Host a static website**.
+5. Index document: Enter `index.html`.
+6. Error document: Enter `index.html` (supporting Single Page Application React Router client-side routing).
+7. Click **Save changes**.
 
-npm install
-```
-
-#### sign-query Function
-
-```bash
-cd ../sign-query
-
-cat > package.json << 'EOF'
-{
-  "name": "sign-query",
-  "version": "1.0.0",
-  "dependencies": {
-    "aws-sdk": "^2.1400.0",
-    "geohash": "^0.2.0"
-  }
-}
-EOF
-
-npm install
-```
-
-#### sign-vote Function
-
-```bash
-cd ../sign-vote
-
-cat > package.json << 'EOF'
-{
-  "name": "sign-vote",
-  "version": "1.0.0",
-  "dependencies": {
-    "aws-sdk": "^2.1400.0",
-    "uuid": "^9.0.0"
-  }
-}
-EOF
-
-npm install
-```
+##### Step 4: Upload Static Assets to S3 Bucket
+1. Select **Objects** tab inside S3 Bucket -> click **Upload**.
+2. Upload all files and subfolders inside `dist/` into the S3 Bucket:
+   ```bash
+   aws s3 sync ./dist s3://tsl-signmap-production-static-web-ckroy7/
+   ```
+3. Click **Upload** and confirm completion.
 
 ---
 
-### Step 3: Shared Utilities
+#### 3. Verification
 
-```bash
-cd ../../shared
-
-cat > dynamodb.js << 'EOF'
-const AWS = require('aws-sdk');
-const dynamodb = new AWS.DynamoDB.DocumentClient();
-
-async function getItem(tableName, key) {
-  const params = {
-    TableName: tableName,
-    Key: key
-  };
-  const result = await dynamodb.get(params).promise();
-  return result.Item;
-}
-
-async function putItem(tableName, item) {
-  const params = {
-    TableName: tableName,
-    Item: item
-  };
-  await dynamodb.put(params).promise();
-  return item;
-}
-
-async function queryByGeoHash(tableName, geoHash) {
-  const params = {
-    TableName: tableName,
-    IndexName: 'GeoHash-index',
-    KeyConditionExpression: 'GeoHash = :gh',
-    ExpressionAttributeValues: {
-      ':gh': geoHash
-    }
-  };
-  const result = await dynamodb.query(params).promise();
-  return result.Items;
-}
-
-module.exports = { getItem, putItem, queryByGeoHash };
-EOF
-
-cat > utils.js << 'EOF'
-function response(statusCode, body) {
-  return {
-    statusCode,
-    headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*'
-    },
-    body: JSON.stringify(body)
-  };
-}
-
-function errorResponse(statusCode, message) {
-  return response(statusCode, { error: message });
-}
-
-module.exports = { response, errorResponse };
-EOF
+Once upload completes, verify the static website endpoint:
+```text
+http://tsl-signmap-production-static-web-ckroy7.s3-website-ap-southeast-1.amazonaws.com/
 ```
-
----
-
-### Step 4: Environment Variables
-
-```bash
-cd ../../
-
-cat > .env << EOF
-# DynamoDB Tables
-SIGNS_TABLE=tsl-signmap-TrafficSigns-dev
-USERS_TABLE=tsl-signmap-Users-dev
-VOTES_TABLE=tsl-signmap-Votes-dev
-
-# S3 Buckets
-IMAGES_BUCKET=tsl-signmap-images-$(aws sts get-caller-identity --query Account --output text)
-
-# SQS
-QUEUE_URL=https://sqs.us-east-1.amazonaws.com/$(aws sts get-caller-identity --query Account --output text)/tsl-signmap-image-processing
-
-# Application Config
-COINS_PER_SUBMISSION=10
-COINS_PER_VOTE=1
-DAILY_VOTE_LIMIT=5
-EOF
-```
-
----
-
-### Step 5: Create IAM Execution Role
-
-```bash
-cat > lambda-trust-policy.json << 'EOF'
-{
-  "Version": "2012-10-17",
-  "Statement": [{
-    "Effect": "Allow",
-    "Principal": { "Service": "lambda.amazonaws.com" },
-    "Action": "sts:AssumeRole"
-  }]
-}
-EOF
-
-aws iam create-role \
-  --role-name tsl-signmap-lambda-role \
-  --assume-role-policy-document file://lambda-trust-policy.json
-
-# Attach basic execution role
-aws iam attach-role-policy \
-  --role-name tsl-signmap-lambda-role \
-  --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-
-# Create custom policy
-cat > lambda-permissions.json << 'EOF'
-{
-  "Version": "2012-10-17",
-  "Statement": [{
-    "Effect": "Allow",
-    "Action": [
-      "dynamodb:GetItem",
-      "dynamodb:PutItem",
-      "dynamodb:UpdateItem",
-      "dynamodb:Query",
-      "dynamodb:Scan",
-      "s3:GetObject",
-      "s3:PutObject",
-      "s3:PutObjectAcl",
-      "sqs:SendMessage",
-      "sqs:ReceiveMessage",
-      "sqs:DeleteMessage"
-    ],
-    "Resource": "*"
-  }]
-}
-EOF
-
-aws iam put-role-policy \
-  --role-name tsl-signmap-lambda-role \
-  --policy-name TSLPermissions \
-  --policy-document file://lambda-permissions.json
-```
-
----
-
-### Verification
-
-```bash
-# Check structure
-tree backend/functions -L 2
-
-# Check dependencies
-cd backend/functions/sign-submit && npm list
-
-# Check IAM role
-aws iam get-role --role-name tsl-signmap-lambda-role
-```
-
----
-
-### Next Step
-
-Continue with [Deploy Lambda Functions](../5.4.2-create-interface-enpoint/)
+The React Admin Web application launches successfully and is prepared for CloudFront CDN distribution in step 5.4.2.

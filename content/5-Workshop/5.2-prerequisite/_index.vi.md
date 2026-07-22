@@ -1,350 +1,76 @@
 ---
-title: "Các bước chuẩn bị"
+title: "Chuẩn bị và Phân chia mạng VPC 3-Tier"
 date: 2026-07-10
 weight: 2
 chapter: false
 ---
 
-### Yêu cầu hệ thống
+#### 1. Yêu cầu Quyền IAM (IAM Permissions)
 
-| Công cụ | Phiên bản | Mục đích |
-|---------|-----------|----------|
-| Node.js | ≥ 18.x | Runtime cho Lambda và build Frontend |
-| npm | ≥ 9.x | Quản lý packages JavaScript |
-| Python | ≥ 3.9 | Lambda functions và ML scripts |
-| AWS CLI | v2 | Deploy và quản lý AWS resources |
-| AWS SAM CLI | Latest | Deploy serverless applications |
-| Git | Latest | Version control |
-
----
-
-### 1. Cài đặt công cụ
-
-#### Node.js & npm
-```bash
-# Download: https://nodejs.org/
-# Chọn LTS version, Add to PATH
-
-# Verify
-node --version  # v18.x hoặc cao hơn
-npm --version   # v9.x hoặc cao hơn
-```
-
-#### Python
-```bash
-# Download: https://www.python.org/downloads/
-# Chọn: Add Python to PATH
-
-# Cài đặt packages cần thiết
-pip install boto3 pillow ultralytics geohash2
-
-# Verify
-python --version  # 3.9 hoặc cao hơn
-pip --version
-```
-
-#### AWS CLI
-```bash
-# Windows: https://awscli.amazonaws.com/AWSCLIV2.msi
-# macOS: brew install awscli
-# Linux: https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2.html
-
-# Verify
-aws --version  # aws-cli/2.x
-```
-
-#### AWS SAM CLI
-```bash
-# Windows: https://github.com/aws/aws-sam-cli/releases/latest/download/AWS_SAM_CLI_64_PY3.msi
-# macOS: brew install aws-sam-cli
-# Linux: pip install aws-sam-cli
-
-# Verify
-sam --version  # SAM CLI, version 1.x
-```
-
----
-
-### 2. Cấu hình AWS Credentials
-
-#### Bước 1: Tạo IAM User với quyền phù hợp
-```
-AWS Console → IAM → Users → Create user
-→ Attach policies: AdministratorAccess (cho workshop)
-→ Security credentials → Create access key 
-→ CLI → Create → Download CSV
-```
-
-#### Bước 2: Configure AWS CLI
-```bash
-aws configure
-
-# Nhập thông tin:
-AWS Access Key ID: AKIA************
-AWS Secret Access Key: **********************
-Default region name: ap-southeast-1  # Hoặc us-east-1
-Default output format: json
-```
-
-#### Bước 3: Verify
-```bash
-aws sts get-caller-identity
-
-# Output:
-{
-  "UserId": "AIDA************",
-  "Account": "123456789012",
-  "Arn": "arn:aws:iam::123456789012:user/your-name"
-}
-```
-
----
-
-### 3. Clone dự án TSL-SignMap
-
-```bash
-# Clone repository (giả định)
-git clone https://github.com/your-org/tsl-signmap.git
-cd tsl-signmap
-
-# Cấu trúc thư mục
-tsl-signmap/
-├── backend/              # Lambda functions
-│   ├── sign-submit/     # Submit sign API
-│   ├── sign-vote/       # Voting API
-│   ├── sign-query/      # Query signs by location
-│   └── ai-detection/    # YOLO inference
-├── frontend/            # React mobile web app
-│   ├── src/
-│   ├── public/
-│   └── package.json
-├── infrastructure/      # SAM/CloudFormation templates
-│   ├── template.yaml
-│   └── parameters.json
-├── ml/                  # Machine learning
-│   ├── yolo-model/
-│   └── training/
-└── scripts/            # Deployment scripts
-    ├── deploy-all.sh
-    └── cleanup.sh
-```
-
----
-
-### 4. Quyền IAM cần thiết
-
-Tài khoản IAM cần các quyền sau:
+Để triển khai toàn bộ hạ tầng hệ thống **TSL-SignMap** bao gồm VPC 3-Tier, cụm EC2 Instances, RDS SQL Server, Application Load Balancer, S3 Buckets và Secrets Manager, tài khoản AWS của bạn cần có IAM Policy với các quyền dịch vụ dưới đây:
 
 ```json
 {
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": [
-        "lambda:*",
-        "apigateway:*",
-        "dynamodb:*",
-        "s3:*",
-        "cognito-idp:*",
-        "sagemaker:*",
-        "sqs:*",
-        "sns:*",
-        "location:*",
-        "iam:CreateRole",
-        "iam:AttachRolePolicy",
-        "iam:PassRole",
-        "cloudformation:*",
-        "cloudwatch:*",
-        "logs:*"
-      ],
-      "Resource": "*"
-    }
-  ]
-}
-```
-
-**Managed Policies:**
-- `AdministratorAccess` (khuyến nghị cho workshop)
-- Hoặc: `PowerUserAccess` + `IAMFullAccess`
-
----
-
-### 5. Setup Environment Variables
-
-Tạo file `.env` trong thư mục root:
-
-```bash
-# AWS Configuration
-AWS_REGION=ap-southeast-1
-AWS_ACCOUNT_ID=123456789012
-
-# Project Configuration
-PROJECT_NAME=tsl-signmap
-ENVIRONMENT=dev
-
-# DynamoDB Tables
-SIGNS_TABLE=TSL-TrafficSigns-dev
-USERS_TABLE=TSL-Users-dev
-VOTES_TABLE=TSL-Votes-dev
-
-# S3 Buckets
-IMAGES_BUCKET=tsl-signmap-images-dev
-FRONTEND_BUCKET=tsl-signmap-frontend-dev
-
-# Cognito
-USER_POOL_NAME=TSL-SignMap-Users
-```
-
-```bash
-# Load environment variables
-export $(cat .env | xargs)
-```
-
----
-
-### 6. Install Dependencies
-
-#### Backend Dependencies
-```bash
-cd backend
-
-# Install Node.js dependencies
-cd sign-submit && npm install && cd ..
-cd sign-vote && npm install && cd ..
-cd sign-query && npm install && cd ..
-
-# Install Python dependencies
-cd ai-detection
-pip install -r requirements.txt -t .
-cd ..
-```
-
-#### Frontend Dependencies
-```bash
-cd frontend
-npm install
-
-# Verify packages
-npm list react react-dom
-```
-
----
-
-### 7. Kiểm tra môi trường
-
-Chạy script kiểm tra tự động:
-
-```bash
-cd tsl-signmap
-bash scripts/check-environment.sh
-```
-
-**Output mong đợi:**
-```
-✓ Node.js: v18.17.0
-✓ npm: v9.8.1
-✓ Python: 3.9.7
-✓ AWS CLI: 2.13.5
-✓ SAM CLI: 1.95.0
-✓ AWS Credentials: Configured
-✓ AWS Region: ap-southeast-1
-✓ IAM Permissions: Valid
-✓ Dependencies: Installed
-
-Environment check passed! Ready to deploy TSL-SignMap.
-```
-
----
-
-### 8. Tạo S3 Buckets
-
-```bash
-# Images bucket
-aws s3 mb s3://tsl-signmap-images-dev \
-  --region ap-southeast-1
-
-# Frontend bucket
-aws s3 mb s3://tsl-signmap-frontend-dev \
-  --region ap-southeast-1
-
-# Enable versioning for images
-aws s3api put-bucket-versioning \
-  --bucket tsl-signmap-images-dev \
-  --versioning-configuration Status=Enabled
-
-# Enable CORS for images bucket
-aws s3api put-bucket-cors \
-  --bucket tsl-signmap-images-dev \
-  --cors-configuration file://config/cors.json
-```
-
-**cors.json:**
-```json
-{
-  "CORSRules": [
-    {
-      "AllowedOrigins": ["*"],
-      "AllowedMethods": ["GET", "PUT", "POST"],
-      "AllowedHeaders": ["*"],
-      "MaxAgeSeconds": 3000
-    }
-  ]
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "TSLSignMapInfrastructurePermissions",
+            "Effect": "Allow",
+            "Action": [
+                "ec2:*",
+                "rds:*",
+                "s3:*",
+                "elasticloadbalancing:*",
+                "autoscaling:*",
+                "cloudwatch:*",
+                "logs:*",
+                "secretsmanager:*",
+                "acm:*",
+                "route53:*",
+                "servicediscovery:*",
+                "elasticache:*",
+                "sagemaker:*",
+                "iam:PassRole",
+                "iam:CreateRole",
+                "iam:AttachRolePolicy"
+            ],
+            "Resource": "*"
+        }
+    ]
 }
 ```
 
 ---
 
-### Troubleshooting
+#### 2. Cấu hình Hạ tầng Mạng AWS VPC (VPC & Subnet Planning)
 
-**Lỗi: `aws: command not found`**
-```bash
-# Thêm AWS CLI vào PATH
-export PATH=$PATH:/usr/local/bin
+Hạ tầng mạng của hệ thống **TSL-SignMap** được triển khai tại AWS Region Singapore (`ap-southeast-1`) với dải mạng tổng **AWS VPC CIDR (`10.0.0.0/16`)** chia thành 3 tầng Subnet riêng biệt trải rộng trên 2 Availability Zones (**AZ - A** và **AZ - B**):
 
-# macOS/Linux: Thêm vào ~/.bashrc hoặc ~/.zshrc
-echo 'export PATH=$PATH:/usr/local/bin' >> ~/.bashrc
-```
+##### Bảng phân chia dải mạng Subnets (CIDR Block Table)
 
-**Lỗi: `Unable to locate credentials`**
-```bash
-# Kiểm tra credentials file
-cat ~/.aws/credentials
-cat ~/.aws/config
-
-# Re-configure
-aws configure
-```
-
-**Lỗi: `Access Denied` khi deploy**
-```bash
-# Kiểm tra quyền IAM
-aws iam get-user
-aws iam list-attached-user-policies --user-name YOUR_USERNAME
-
-# Test specific permission
-aws dynamodb list-tables
-aws s3 ls
-```
-
-**Lỗi: `pip install` fails**
-```bash
-# Upgrade pip
-python -m pip install --upgrade pip
-
-# Use virtual environment
-python -m venv venv
-source venv/bin/activate  # macOS/Linux
-venv\Scripts\activate     # Windows
-pip install -r requirements.txt
-```
+| Tầng Phân Mạng | Subnet Name | Availability Zone | Dải Mạng CIDR | Mục Đích Sử Dụng |
+| :--- | :--- | :--- | :--- | :--- |
+| **Public Subnet** | `Public Subnet A` | `ap-southeast-1a` (AZ-A) | `10.0.1.0/24` | Chứa ALB tiếp nhận lưu lượng HTTPS API công cộng và NAT Gateway A |
+| **Public Subnet** | `Public Subnet B` | `ap-southeast-1b` (AZ-B) | `10.0.1.128/24` | Chứa ALB phụ và NAT Gateway B dự phòng Multi-AZ |
+| **Private App Subnet** | `Private Subnet A` | `ap-southeast-1a` (AZ-A) | `10.0.2.0/24` | Chứa EC2 Ocelot API Gateway, 7 Microservices Containers & EC2 Scraper Instance |
+| **Private App Subnet** | `Private Subnet B` | `ap-southeast-1b` (AZ-B) | `10.0.2.128/24` | Chứa cụm EC2 Ocelot API Gateway + Microservices dự phòng |
+| **Private DB Subnet** | `Private DB Sub A` | `ap-southeast-1a` (AZ-A) | `10.0.3.0/24` | Chứa CSDL AWS RDS Primary for SQL Server 2022 (Port 1433) |
+| **Private DB Subnet** | `Private DB Sub B` | `ap-southeast-1b` (AZ-B) | `10.0.3.128/24` | Chứa AWS RDS Standby SQL Server (Multi-AZ synchronous replication) & ElastiCache (Redis) |
 
 ---
 
-### Next Steps
+#### 3. Quy trình Triển khai Hạ tầng Mạng và Bảo mật
 
-Sau khi hoàn tất chuẩn bị:
-1. ✅ [Tạo DynamoDB Tables & Infrastructure](../5.3-infrastructure-database/)
-2. ✅ [Deploy Backend & API Gateway](../5.4-backend-apigateway/)
-3. ✅ [Deploy Frontend Application](../5.5-frontend-deployment/)
+##### Bước 1: Khởi tạo AWS VPC & Gateway
+1. Truy cập **AWS VPC Console** chọn **Create VPC**.
+2. Chọn **VPC and more**, nhập **Name tag**: `TSL-SignMap-VPC`.
+3. Nhập dải IP **IPv4 CIDR block**: `10.0.0.0/16`.
+4. Chọn **Number of Availability Zones (AZs)**: `2` (`ap-southeast-1a` và `ap-southeast-1b`).
+5. Chọn **Number of Public subnets**: `2`.
+6. Chọn **Number of Private subnets**: `4` (2 App Subnets + 2 DB Subnets).
+7. Đánh dấu chọn tạo **NAT Gateways** (In 2 AZs) và **VPC Endpoints** cho kết nối riêng tư.
 
+##### Bước 2: Thiết lập Security Groups (Tường lửa cho dịch vụ)
+- **`ALB-Security-Group`**: Cho phép traffic inbound **HTTPS (Port 443)** và **HTTP (Port 80)** từ `0.0.0.0/0`.
+- **`EC2-App-Security-Group`**: Chỉ cho phép traffic inbound **Port 5008 (Ocelot API Gateway)** từ `ALB-Security-Group` và giao tiếp nội bộ giữa 7 Microservices.
+- **`RDS-DB-Security-Group`**: Chỉ cho phép traffic inbound **Port 1433 (SQL Server)** và **Port 6379 (Redis)** từ `EC2-App-Security-Group`.

@@ -1,350 +1,77 @@
 ---
-title: "Preparation Steps"
-date: 2026-07-10
+title: "Prerequisites and 3-Tier VPC Subnet Setup"
+date: 2026-07-22
 weight: 2
 chapter: false
 ---
 
-### System Requirements
+#### 1. Required IAM Permissions
 
-| Tool | Version | Purpose |
-|------|---------|---------|
-| Node.js | ≥ 18.x | Lambda runtime and Frontend build |
-| npm | ≥ 9.x | JavaScript package manager |
-| Python | ≥ 3.9 | Lambda functions and ML scripts |
-| AWS CLI | v2 | Deploy and manage AWS resources |
-| AWS SAM CLI | Latest | Deploy serverless applications |
-| Git | Latest | Version control |
-
----
-
-### 1. Install Tools
-
-#### Node.js & npm
-```bash
-# Download: https://nodejs.org/
-# Choose LTS version, Add to PATH
-
-# Verify
-node --version  # v18.x or higher
-npm --version   # v9.x or higher
-```
-
-#### Python
-```bash
-# Download: https://www.python.org/downloads/
-# Check: Add Python to PATH
-
-# Install required packages
-pip install boto3 pillow ultralytics geohash2
-
-# Verify
-python --version  # 3.9 or higher
-pip --version
-```
-
-#### AWS CLI
-```bash
-# Windows: https://awscli.amazonaws.com/AWSCLIV2.msi
-# macOS: brew install awscli
-# Linux: https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2.html
-
-# Verify
-aws --version  # aws-cli/2.x
-```
-
-#### AWS SAM CLI
-```bash
-# Windows: https://github.com/aws/aws-sam-cli/releases/latest/download/AWS_SAM_CLI_64_PY3.msi
-# macOS: brew install aws-sam-cli
-# Linux: pip install aws-sam-cli
-
-# Verify
-sam --version  # SAM CLI, version 1.x
-```
-
----
-
-### 2. Configure AWS Credentials
-
-#### Step 1: Create IAM User with appropriate permissions
-```
-AWS Console → IAM → Users → Create user
-→ Attach policies: AdministratorAccess (for workshop)
-→ Security credentials → Create access key 
-→ CLI → Create → Download CSV
-```
-
-#### Step 2: Configure AWS CLI
-```bash
-aws configure
-
-# Enter information:
-AWS Access Key ID: AKIA************
-AWS Secret Access Key: **********************
-Default region name: ap-southeast-1  # Or us-east-1
-Default output format: json
-```
-
-#### Step 3: Verify
-```bash
-aws sts get-caller-identity
-
-# Output:
-{
-  "UserId": "AIDA************",
-  "Account": "123456789012",
-  "Arn": "arn:aws:iam::123456789012:user/your-name"
-}
-```
-
----
-
-### 3. Clone TSL-SignMap Project
-
-```bash
-# Clone repository (example)
-git clone https://github.com/your-org/tsl-signmap.git
-cd tsl-signmap
-
-# Directory structure
-tsl-signmap/
-├── backend/              # Lambda functions
-│   ├── sign-submit/     # Submit sign API
-│   ├── sign-vote/       # Voting API
-│   ├── sign-query/      # Query signs by location
-│   └── ai-detection/    # YOLO inference
-├── frontend/            # React mobile web app
-│   ├── src/
-│   ├── public/
-│   └── package.json
-├── infrastructure/      # SAM/CloudFormation templates
-│   ├── template.yaml
-│   └── parameters.json
-├── ml/                  # Machine learning
-│   ├── yolo-model/
-│   └── training/
-└── scripts/            # Deployment scripts
-    ├── deploy-all.sh
-    └── cleanup.sh
-```
-
----
-
-### 4. Required IAM Permissions
-
-IAM account needs the following permissions:
+To deploy the **TSL-SignMap** infrastructure including the 3-Tier VPC, EC2 Instances, RDS SQL Server, Application Load Balancer, S3 Buckets, and Secrets Manager, your AWS user account requires an IAM Policy with the following permissions:
 
 ```json
 {
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": [
-        "lambda:*",
-        "apigateway:*",
-        "dynamodb:*",
-        "s3:*",
-        "cognito-idp:*",
-        "sagemaker:*",
-        "sqs:*",
-        "sns:*",
-        "location:*",
-        "iam:CreateRole",
-        "iam:AttachRolePolicy",
-        "iam:PassRole",
-        "cloudformation:*",
-        "cloudwatch:*",
-        "logs:*"
-      ],
-      "Resource": "*"
-    }
-  ]
-}
-```
-
-**Managed Policies:**
-- `AdministratorAccess` (recommended for workshop)
-- Or: `PowerUserAccess` + `IAMFullAccess`
-
----
-
-### 5. Setup Environment Variables
-
-Create `.env` file in root directory:
-
-```bash
-# AWS Configuration
-AWS_REGION=ap-southeast-1
-AWS_ACCOUNT_ID=123456789012
-
-# Project Configuration
-PROJECT_NAME=tsl-signmap
-ENVIRONMENT=dev
-
-# DynamoDB Tables
-SIGNS_TABLE=TSL-TrafficSigns-dev
-USERS_TABLE=TSL-Users-dev
-VOTES_TABLE=TSL-Votes-dev
-
-# S3 Buckets
-IMAGES_BUCKET=tsl-signmap-images-dev
-FRONTEND_BUCKET=tsl-signmap-frontend-dev
-
-# Cognito
-USER_POOL_NAME=TSL-SignMap-Users
-```
-
-```bash
-# Load environment variables
-export $(cat .env | xargs)
-```
-
----
-
-### 6. Install Dependencies
-
-#### Backend Dependencies
-```bash
-cd backend
-
-# Install Node.js dependencies
-cd sign-submit && npm install && cd ..
-cd sign-vote && npm install && cd ..
-cd sign-query && npm install && cd ..
-
-# Install Python dependencies
-cd ai-detection
-pip install -r requirements.txt -t .
-cd ..
-```
-
-#### Frontend Dependencies
-```bash
-cd frontend
-npm install
-
-# Verify packages
-npm list react react-dom
-```
-
----
-
-### 7. Verify Environment
-
-Run automated check script:
-
-```bash
-cd tsl-signmap
-bash scripts/check-environment.sh
-```
-
-**Expected output:**
-```
-✓ Node.js: v18.17.0
-✓ npm: v9.8.1
-✓ Python: 3.9.7
-✓ AWS CLI: 2.13.5
-✓ SAM CLI: 1.95.0
-✓ AWS Credentials: Configured
-✓ AWS Region: ap-southeast-1
-✓ IAM Permissions: Valid
-✓ Dependencies: Installed
-
-Environment check passed! Ready to deploy TSL-SignMap.
-```
-
----
-
-### 8. Create S3 Buckets
-
-```bash
-# Images bucket
-aws s3 mb s3://tsl-signmap-images-dev \
-  --region ap-southeast-1
-
-# Frontend bucket
-aws s3 mb s3://tsl-signmap-frontend-dev \
-  --region ap-southeast-1
-
-# Enable versioning for images
-aws s3api put-bucket-versioning \
-  --bucket tsl-signmap-images-dev \
-  --versioning-configuration Status=Enabled
-
-# Enable CORS for images bucket
-aws s3api put-bucket-cors \
-  --bucket tsl-signmap-images-dev \
-  --cors-configuration file://config/cors.json
-```
-
-**cors.json:**
-```json
-{
-  "CORSRules": [
-    {
-      "AllowedOrigins": ["*"],
-      "AllowedMethods": ["GET", "PUT", "POST"],
-      "AllowedHeaders": ["*"],
-      "MaxAgeSeconds": 3000
-    }
-  ]
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "TSLSignMapInfrastructurePermissions",
+            "Effect": "Allow",
+            "Action": [
+                "ec2:*",
+                "rds:*",
+                "s3:*",
+                "elasticloadbalancing:*",
+                "autoscaling:*",
+                "cloudwatch:*",
+                "logs:*",
+                "secretsmanager:*",
+                "acm:*",
+                "route53:*",
+                "servicediscovery:*",
+                "elasticache:*",
+                "sagemaker:*",
+                "iam:PassRole",
+                "iam:CreateRole",
+                "iam:AttachRolePolicy"
+            ],
+            "Resource": "*"
+        }
+    ]
 }
 ```
 
 ---
 
-### Troubleshooting
+#### 2. AWS VPC Network Architecture & Subnet Planning
 
-**Error: `aws: command not found`**
-```bash
-# Add AWS CLI to PATH
-export PATH=$PATH:/usr/local/bin
+The **TSL-SignMap** network infrastructure is deployed in the AWS Singapore Region (`ap-southeast-1`) with an **AWS VPC CIDR (`10.0.0.0/16`)** divided into 3 subnet tiers across 2 Availability Zones (**AZ - A** and **AZ - B**):
 
-# macOS/Linux: Add to ~/.bashrc or ~/.zshrc
-echo 'export PATH=$PATH:/usr/local/bin' >> ~/.bashrc
-```
+##### Subnet CIDR Block Planning Table
 
-**Error: `Unable to locate credentials`**
-```bash
-# Check credentials file
-cat ~/.aws/credentials
-cat ~/.aws/config
-
-# Re-configure
-aws configure
-```
-
-**Error: `Access Denied` during deployment**
-```bash
-# Check IAM permissions
-aws iam get-user
-aws iam list-attached-user-policies --user-name YOUR_USERNAME
-
-# Test specific permission
-aws dynamodb list-tables
-aws s3 ls
-```
-
-**Error: `pip install` fails**
-```bash
-# Upgrade pip
-python -m pip install --upgrade pip
-
-# Use virtual environment
-python -m venv venv
-source venv/bin/activate  # macOS/Linux
-venv\Scripts\activate     # Windows
-pip install -r requirements.txt
-```
+| Subnet Tier | Subnet Name | Availability Zone | CIDR Block | Purpose & Workload |
+| :--- | :--- | :--- | :--- | :--- |
+| **Public Subnet** | `Public Subnet A` | `ap-southeast-1a` (AZ-A) | `10.0.1.0/24` | Hosts ALB for public HTTPS API traffic and NAT Gateway A |
+| **Public Subnet** | `Public Subnet B` | `ap-southeast-1b` (AZ-B) | `10.0.1.128/24` | Hosts secondary ALB and NAT Gateway B for Multi-AZ redundancy |
+| **Private App Subnet** | `Private Subnet A` | `ap-southeast-1a` (AZ-A) | `10.0.2.0/24` | Hosts EC2 Ocelot API Gateway, 7 Microservices Containers & EC2 Scraper Instance |
+| **Private App Subnet** | `Private Subnet B` | `ap-southeast-1b` (AZ-B) | `10.0.2.128/24` | Hosts redundant EC2 Ocelot API Gateway + Microservices instances |
+| **Private DB Subnet** | `Private DB Sub A` | `ap-southeast-1a` (AZ-A) | `10.0.3.0/24` | Hosts Primary AWS RDS for SQL Server 2022 (Port 1433) |
+| **Private DB Subnet** | `Private DB Sub B` | `ap-southeast-1b` (AZ-B) | `10.0.3.128/24` | Hosts Standby AWS RDS SQL Server (Multi-AZ synchronous replication) & ElastiCache (Redis) |
 
 ---
 
-### Next Steps
+#### 3. Network & Security Provisioning Workflow
 
-After completing preparation:
-1. ✅ [Create DynamoDB Tables & Infrastructure](../5.3-infrastructure-database/)
-2. ✅ [Deploy Backend & API Gateway](../5.4-backend-apigateway/)
-3. ✅ [Deploy Frontend Application](../5.5-frontend-deployment/)
+##### Step 1: Initialize AWS VPC & Gateways
+1. Navigate to **AWS VPC Console** and click **Create VPC**.
+2. Select **VPC and more**, set **Name tag**: `TSL-SignMap-VPC`.
+3. Set **IPv4 CIDR block**: `10.0.0.0/16`.
+4. Set **Number of Availability Zones (AZs)**: `2` (`ap-southeast-1a` and `ap-southeast-1b`).
+5. Set **Number of Public subnets**: `2`.
+6. Set **Number of Private subnets**: `4` (2 App Subnets + 2 DB Subnets).
+7. Enable **NAT Gateways** (In 2 AZs) and **VPC Endpoints** for private connectivity.
+
+##### Step 2: Configure Security Groups
+- **`ALB-Security-Group`**: Allows inbound **HTTPS (Port 443)** and **HTTP (Port 80)** from `0.0.0.0/0`.
+- **`EC2-App-Security-Group`**: Allows inbound **Port 5008 (Ocelot API Gateway)** from `ALB-Security-Group` and internal inter-service communications.
+- **`RDS-DB-Security-Group`**: Allows inbound **Port 1433 (SQL Server)** and **Port 6379 (Redis)** exclusively from `EC2-App-Security-Group`.
 

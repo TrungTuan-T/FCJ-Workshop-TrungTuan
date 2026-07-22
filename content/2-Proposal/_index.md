@@ -7,231 +7,114 @@ pre: " <b> 2. </b> "
 ---
 
 # TSL-SignMap
-
-## Community-Driven Traffic Sign Location Management System with AI
+## AI-Integrated & Community-Driven Traffic Sign Location Management System
 
 ### 1. Executive Summary
+TSL-SignMap is an innovative technological solution designed to build and maintain a real-time traffic sign database in Vietnam. The system integrates a user-friendly mobile application, open-source mapping services (OpenStreetMap), advanced Computer Vision (YOLO AI models for traffic sign detection and classification), and a crowdsourced data collection model. Featuring a tokenized economy (TSL Coin) and a multi-tiered reputation-based consensus and voting process, TSL-SignMap ensures data integrity, transparency, and accuracy, helping drivers navigate safely while supporting road authorities in efficient traffic management.
 
-TSL-SignMap is a traffic sign management system combining crowdsourcing, AI detection (YOLO), and real-time mapping. The system uses serverless architecture on AWS, integrating mobile apps and OpenStreetMap to create an accurate, continuously updated traffic sign database.
+---
 
-### 2. Problem Statement
+### 2. Problem Statement & Proposed Solution
 
-**Current Problems**
+#### What’s the Problem?
+- **Outdated Traffic Data**: Traffic signs in Vietnam are constantly changing (newly added, relocated, obstructed, or removed), yet updates rely heavily on manual surveys that are costly and time-consuming.
+- **Suboptimal Existing Mapping Apps**: Standard navigation tools often lack granular traffic sign data or fail to reflect recent regulatory sign updates along specific routes promptly.
+- **Traffic Safety Risks**: The absence of timely and accurate traffic sign information increases the risk of unintentional traffic violations and compromised road safety for commuters.
 
-| Problem | Description |
-|---------|-------------|
-| Outdated sign data | Traffic signs change but maps don't update in time |
-| High survey costs | Manual surveys are time and labor intensive |
-| Lack of community involvement | People have no channel to contribute information |
-| Low accuracy | Manual sign verification is error-prone |
+#### The Solution (TSL-SignMap)
+TSL-SignMap addresses these challenges through a collaborative smart ecosystem:
+- **Real-Time Mobile Application**: Integrated with OpenStreetMap to display real-time traffic sign locations directly on an interactive map.
+- **Community Crowdsourcing**: Drivers and local residents can report missing, inaccurate, or newly added traffic signs.
+- **AI-Powered Detection & Classification**: Cutting-edge computer vision models (YOLO) automatically detect and classify traffic signs from user-uploaded images, minimizing manual verification effort.
+- **Weighted Voting Consensus**: Validates user contributions based on upvotes/downvotes weighted by user reputation, spatial proximity (GPS distance), and expertise.
+- **TSL Coin Economy**: Incentivizes active and high-quality community participation through a transparent coin reward and penalty system.
 
-**TSL-SignMap Solution**
+---
 
-| Feature | Technology |
-|---------|------------|
-| Crowdsourcing | Mobile app allows users to report signs |
-| AI Detection | YOLO model automatically detects and classifies signs |
-| Voting System | Community verifies contribution accuracy |
-| Real-time Map | OpenStreetMap integration displays updated signs |
-| Reward System | TSL Coin incentivizes user participation |
+### 3. Functional Requirements
 
-**Benefits**
+#### a. User Registration & Authentication
+- Secure registration and authentication for mobile users.
+- Initial welcome bonus of 20 TSL Coins upon account creation.
+- Reputation score management and TSL Coin balance tracking.
 
-| Benefit | Details |
-|---------|---------|
-| Updated data | Signs continuously updated by community |
-| Low cost | Serverless reduces infrastructure costs |
-| High accuracy | AI + voting system ensures data quality |
-| Scalability | Auto-scaling handles traffic spikes |
-| Security | Multi-layer security protects user data |
+#### b. Traffic Sign Display & Navigation
+- Real-time map display powered by OpenStreetMap showing categorized traffic signs (regulatory, warning, mandatory, and informational signs).
 
+#### c. Search & Advanced Filtering
+- Search traffic signs by type or proximity radius.
+- Advanced filtering capabilities costing 1 TSL Coin per query.
 
+#### d. User Contributions
+- Submit updates (new, missing, or incorrect signs) with GPS coordinates and optional descriptions/photos.
+- Contribution submission fee: 5 TSL Coins.
+- Uploaded photos are automatically scanned by the YOLO AI pipeline for validation and preliminary classification.
 
-### 3. Solution Architecture
+#### e. Voting Mechanism & Community Verification
+- Qualified users (meeting minimum activity thresholds) can cast upvotes or downvotes on pending contributions.
+- Earn 1 TSL Coin per matching vote (up to 5 TSL Coins/day).
+- **Automated Verification Rules**:
+  - Over 70% consensus (after 5+ votes or 7 days): Automatically approved and integrated into the database.
+  - Under 30% consensus: Automatically rejected.
+  - 30% - 70% consensus: Flagged for administrator review.
 
-TSL-SignMap uses serverless, event-driven architecture on AWS, combining mobile apps and AI models to build a real-time traffic sign management system.
+#### f. Administrator Web Dashboard
+- Web-based dashboard for administrators to review flagged contributions, approve/reject submissions, and override votes if necessary.
+- Adjust reward/penalty parameters and user reputation scores to maintain ecosystem balance.
 
-![TSL-SignMap Architecture](/images/2-Proposal/aws.jpg)
+#### g. TSL Coin Economic Lifecycle
+- **Rewards**: 10+ TSL Coins for approved contributions; 1 TSL Coin for matching votes.
+- **Expenditures**: Spend coins on map access (2 TSL Coins/day), contribution submission (5 TSL Coins), or advanced filters (1 TSL Coin).
+- **Top-up**: Users can top up TSL Coins with fiat currency (e.g., $1 for 10 TSL Coins).
 
-**AWS Services Used**
+---
 
-| Service | Role |
-|---------|------|
-| Amazon Cognito | User authentication, JWT token management |
-| Amazon API Gateway | REST API endpoints for mobile app |
-| AWS Lambda | Backend logic processing, AI inference |
-| Amazon DynamoDB | Store traffic sign info, user data |
-| Amazon S3 | Store sign images, YOLO models |
-| Amazon SageMaker | Train and host YOLO model |
-| Amazon Location Service | Geospatial data processing, map integration |
-| Amazon SQS | Asynchronous image processing queue |
-| Amazon SNS | User notifications |
-| Amazon CloudWatch | Monitoring and logging |
-| AWS Amplify | Deploy mobile app backend |
+### 4. System Architecture & Technology Stack
 
-**Component Design**
+#### Architecture Overview
+- **Mobile Client**: Developed with Flutter / React Native, featuring an OpenStreetMap interface (MapLibre GL / Leaflet).
+- **AI Processing Pipeline**: YOLO (You Only Look Once) model trained on Vietnamese traffic sign datasets for real-time object detection and classification.
+- **Backend Services**: RESTful API & WebSocket Server (Node.js / Python FastAPI) for real-time synchronization.
+- **Database Layer**: PostgreSQL + PostGIS (spatial database for sign locations), Redis (caching & leaderboard), Amazon S3 / Cloud Storage (image storage).
+- **Admin Web Dashboard**: Built with React.js / Next.js.
 
-| Component | Technical Details |
-|-----------|-------------------|
-| Mobile App | React Native/Flutter connected to API Gateway |
-| Authentication | Cognito User Pool with MFA |
-| API Layer | API Gateway + Lambda authorizer |
-| AI Detection | Lambda invokes SageMaker endpoint (YOLO) |
-| Database | DynamoDB: SignID (PK), Location (GSI) |
-| Image Storage | S3 with presigned URL upload |
-| Voting System | Lambda + DynamoDB transactions |
-| Coin System | DynamoDB table tracks user balance |
-| Map Integration | Location Service + OpenStreetMap API |
-| Notifications | SNS push notifications via mobile app |
+---
 
+### 5. Timeline & Milestones
 
+- **Month 1: Data Collection & AI Model Training**
+  - Gather dataset of Vietnamese traffic sign images.
+  - Train and evaluate YOLO models for sign detection and classification.
+  - Design spatial database schemas (PostGIS) and API contracts.
 
-### 4. Technical Implementation
+- **Month 2: Core Platform Development & Token Economy**
+  - Develop mobile application with OpenStreetMap integration.
+  - Implement weighted voting algorithm and TSL Coin balance management.
+  - Integrate AI pipeline for automated submission validation.
 
-**Technical Requirements**
+- **Month 3: Admin Dashboard & End-to-End Testing**
+  - Build Admin Web Dashboard.
+  - Conduct thorough testing (End-to-End Testing), optimizing AI recognition accuracy and map synchronization stability.
 
-| Layer | AWS Services |
-|-------|--------------|
-| Mobile App | AWS Amplify, React Native/Flutter |
-| Authentication | Amazon Cognito User Pool |
-| API Gateway | Amazon API Gateway REST API |
-| Compute | AWS Lambda (Python/Node.js) |
-| AI/ML | Amazon SageMaker (YOLO model) |
-| Database | Amazon DynamoDB (On-Demand) |
-| Storage | Amazon S3 (images, models) |
-| Geospatial | Amazon Location Service |
-| Queue | Amazon SQS (image processing) |
-| Notifications | Amazon SNS (push notifications) |
-| Monitoring | Amazon CloudWatch |
-| Security | AWS KMS, IAM Roles |
+- **Month 4 Onward: Community Pilot & Deployment**
+  - Launch community pilot in key cities (e.g., Ho Chi Minh City / Hanoi).
+  - Collect user feedback, fine-tune consensus algorithms, and scale system capacity.
 
-**Data Model (DynamoDB)**
+---
 
-```
-Table: TrafficSigns
-- SignID (PK)
-- Location (lat, long) - GSI
-- SignType (warning, regulatory, information)
-- ImageURL (S3 path)
-- Status (pending, approved, rejected)
-- SubmittedBy (UserID)
-- Votes (upvotes, downvotes)
-- CreatedAt, UpdatedAt
+### 6. Risk Assessment & Mitigation Strategies
 
-Table: Users
-- UserID (PK)
-- Email
-- CoinBalance
-- ReputationScore
-- SubmissionsCount
-- VotesCount
+| Risk | Impact | Probability | Mitigation Strategy |
+| :--- | :--- | :--- | :--- |
+| Spam Reports / False Submissions | High | Medium | Require 5 TSL Coins submission fee, filter invalid photos via AI, weight votes by GPS distance and reputation. |
+| TSL Coin Fraud (Sybil Attack) | Medium | Medium | User identity verification, cap daily voting rewards (max 5 Coins/day), penalize reputation score for bad behavior. |
+| AI Misclassification | Medium | Low | Use AI for preliminary screening; rely on community consensus and Admin overrides for final approval. |
+| Offline / Weak Network Connection | Low | Medium | Provide offline storage on mobile devices and auto-sync when network connection is restored. |
 
-Table: Votes
-- VoteID (PK)
-- SignID-UserID (GSI)
-- VoteType (upvote, downvote)
-- Weight (based on reputation)
-- Timestamp
-```
+---
 
+### 7. Expected Outcomes
 
-
-### 5. Roadmap & Implementation Milestones
-
-| Phase | Tasks | Timeline |
-|-------|-------|----------|
-| **Phase 1: Infrastructure** | Setup AWS account, VPC, IAM roles | 1 week |
-| | Deploy Cognito User Pool | |
-| | Setup DynamoDB tables | |
-| | Configure S3 buckets | |
-| **Phase 2: Backend API** | Create Lambda functions | 2 weeks |
-| | Setup API Gateway endpoints | |
-| | Implement authentication flow | |
-| | Deploy SQS queues | |
-| **Phase 3: AI Integration** | Train YOLO model on traffic signs | 2 weeks |
-| | Deploy model to SageMaker | |
-| | Create Lambda for AI inference | |
-| | Test detection accuracy | |
-| **Phase 4: Mobile App** | Develop React Native app | 3 weeks |
-| | Integrate with API Gateway | |
-| | Implement map view (Location Service) | |
-| | Add camera and image upload | |
-| **Phase 5: Voting & Coins** | Implement voting system | 1 week |
-| | Create coin transaction logic | |
-| | Add reputation calculation | |
-| **Phase 6: Testing** | Integration testing | 1 week |
-| | Load testing with traffic simulation | |
-| | Security audit | |
-| **Phase 7: Launch** | Deploy to production | 1 week |
-| | Monitor with CloudWatch | |
-| | Gather user feedback | |
-
-### 6. Budget Estimation
-
-**AWS Infrastructure Costs (estimated/month)**
-
-| AWS Service | Estimated Cost | Notes |
-|-------------|----------------|-------|
-| Amazon Cognito | $0–$5 | First 50k MAU free |
-| Amazon API Gateway | $3–$10 | ~1M requests/month |
-| AWS Lambda | $5–$20 | Compute + AI inference |
-| Amazon DynamoDB | $10–$30 | On-Demand mode |
-| Amazon S3 | $5–$15 | Image storage + model |
-| Amazon SageMaker | $20–$50 | YOLO endpoint hosting |
-| Amazon Location Service | $5–$15 | Geospatial queries |
-| Amazon SQS | $0–$3 | Queue processing |
-| Amazon SNS | $0–$5 | Push notifications |
-| Amazon CloudWatch | $3–$10 | Logs + metrics |
-| **Total** | **$51–$163** | Depends on users and traffic |
-
-**TSL Coin Economics Model**
-
-| Action | Coins |
-|--------|-------|
-| New registration | +20 Coins |
-| Submit sign contribution | -5 Coins |
-| Contribution approved | +10 Coins |
-| Accurate vote | +1 Coin (max 5/day) |
-| View map | -2 Coins/day |
-| Top up | $1 = 10 Coins |
-
-### 7. Risk Assessment
-
-| Risk Type | Description | Level | Mitigation Measures |
-|-----------|-------------|-------|-------------------|
-| **AI Accuracy** | YOLO model misidentifies traffic signs | High | Train with large dataset, voting system verification |
-| **Spam/Abuse** | Users spam fake contributions | Medium | Rate limiting, reputation system, coin cost |
-| **Data Privacy** | Photos may contain personal information | High | Remove EXIF metadata, blur faces/license plates |
-| **Geolocation Accuracy** | GPS inaccurate in weak signal areas | Medium | Allow manual adjustment, crowd verification |
-| **Cost Overrun** | SageMaker endpoint can be expensive | Medium | Use Lambda cold start, batch processing |
-| **Security** | API exposure, unauthorized access | High | Cognito authorizer, IAM roles, encryption |
-| **Voting Manipulation** | Users create multiple accounts to vote | Medium | Require minimum activity, weight by reputation |
-| **Scalability** | Traffic spike at launch | Low | Serverless auto-scaling, DynamoDB on-demand |  
-  
-### 8. Expected Outcomes
-
-**Project Goals**
-
-| Goal | Result |
-|------|--------|
-| Traffic sign data | Database of 10,000+ signs with >90% accuracy |
-| Users | 1,000+ active users in first 3 months |
-| AI Detection | YOLO model achieves 85%+ accuracy |
-| Response Time | API latency <500ms for 95% of requests |
-| Uptime | 99.5%+ availability |
-| Cost | Maintenance cost <$200/month with 5k users |
-
-**Value Delivered**
-
-- **For drivers**: Updated sign maps help drivers navigate safely
-- **For community**: Channel to contribute to traffic infrastructure improvements
-- **For authorities**: Real-time data on traffic sign conditions
-- **Technical learning**: Experience building serverless + AI + mobile systems
-
-**Scalability Options**
-
-- Integration with navigation apps (Google Maps, Waze)
-- Expand to other infrastructure types (streetlights, road damage)
-- API for third-party developers
-- Analytics dashboard for traffic authorities
-- Integration with autonomous vehicle systems
+- **Real-Time Traffic Sign Database**: Provides drivers with an accurate, continuously updated traffic sign map for safer navigation.
+- **Cost Reduction**: Cuts manual survey and maintenance costs for transport authorities by up to 80%.
+- **Community Engagement**: Fosters a collaborative road-safety ecosystem through transparent and rewarding TSL Coin mechanics.

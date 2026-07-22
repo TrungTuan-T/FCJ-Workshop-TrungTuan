@@ -1,364 +1,72 @@
 ---
-title: "Triển khai Frontend"
-date: 2026-07-10
+title: "Cấu hình VPC Endpoints (S3 & SageMaker) và Policies"
+date: 2026-07-22
 weight: 5
 chapter: false
 ---
 
-### Tổng quan
+#### 1. Tổng quan VPC Endpoints & Endpoint Policies
 
-Deploy React mobile web app lên S3 + CloudFront với Cognito authentication.
+Trong hệ thống **TSL-SignMap**, để đảm bảo an toàn thông tin theo chuẩn **AWS Well-Architected Framework**, tất cả lưu lượng dữ liệu giữa các máy chủ EC2 Microservices với dịch vụ lưu trữ **Amazon S3** và mô hình nhận diện AI **Amazon SageMaker (YOLO)** đều được định tuyến thông qua các **VPC Endpoints (AWS PrivateLink)** mà không cần đi qua Internet công cộng.
 
-**Tech Stack:**
-- React 18 + TypeScript
-- AWS Amplify
-- Mapbox/OpenStreetMap
-- Material-UI
+- **S3 VPC Endpoint:** Cho phép `ContributionService` lưu trữ và truy xuất các tệp ảnh biển báo giao thông tải lên **S3 Media Bucket** một cách riêng tư và bảo mật.
+- **SageMaker VPC Endpoint:** Cho phép `ApiGateway` và các Microservices gửi yêu cầu nhận diện ảnh đến mô hình **YOLO AI Endpoint** hoàn toàn trong mạng nội bộ VPC.
+- **VPC Endpoint Policies (IAM Resource Policies):** Đính kèm trực tiếp vào VPC Endpoint để kiểm soát truy cập theo nguyên tắc đặc quyền tối thiểu (Least Privilege), ngăn chặn hành vi rò rỉ dữ liệu (Data Exfiltration) ra các bucket không được phép bên ngoài.
 
 ---
 
-### Bước 1: Setup Frontend
+#### 2. Cấu hình Chính sách VPC Endpoint Policy (Restricting S3 Access)
 
-```bash
-cd frontend
+Chính sách bên dưới đảm bảo các máy chủ trong VPC chỉ được phép đọc/ghi dữ liệu vào đúng bộ chứa **`tsl-signmap-media-bucket`**, các yêu cầu truy cập đến những S3 bucket khác từ dải mạng VPC sẽ tự động bị từ chối:
 
-# Install dependencies
-npm install
-
-# Configure Amplify
-cat > src/aws-config.js << EOF
-export const awsConfig = {
-  Auth: {
-    region: 'us-east-1',
-    userPoolId: '${USER_POOL_ID}',
-    userPoolWebClientId: '${CLIENT_ID}'
-  },
-  API: {
-    endpoints: [{
-      name: 'TSLSignMapAPI',
-      endpoint: 'https://${API_ID}.execute-api.us-east-1.amazonaws.com/prod'
-    }]
-  }
-};
-EOF
-```
-
----
-
-### Bước 2: Build Frontend
-
-```bash
-# Build production
-npm run build
-
-# Output in build/ directory
-ls -lh build/
-```
-
-**Build output:**
-```
-build/
-├── index.html
-├── static/
-│   ├── js/
-│   ├── css/
-│   └── media/
-└── manifest.json
-```
-
----
-
-### Bước 3: Deploy to S3
-
-```bash
-FRONTEND_BUCKET="tsl-signmap-frontend-$(aws sts get-caller-identity --query Account --output text)"
-
-# Create bucket
-aws s3 mb s3://$FRONTEND_BUCKET
-
-# Enable static website hosting
-aws s3 website s3://$FRONTEND_BUCKET \
-  --index-document index.html \
-  --error-document index.html
-
-# Upload files
-aws s3 sync build/ s3://$FRONTEND_BUCKET/ \
-  --delete \
-  --cache-control "public, max-age=31536000, immutable" \
-  --exclude "*.html" \
-  --exclude "service-worker.js"
-
-# Upload HTML with no-cache
-aws s3 sync build/ s3://$FRONTEND_BUCKET/ \
-  --exclude "*" \
-  --include "*.html" \
-  --include "service-worker.js" \
-  --cache-control "no-cache, no-store, must-revalidate"
-```
-
----
-
-### Bước 4: Setup CloudFront
-
-```bash
-# Create OAI
-OAI_ID=$(aws cloudfront create-cloud-front-origin-access-identity \
-  --cloud-front-origin-access-identity-config \
-    CallerReference=$(date +%s),Comment="TSL-SignMap OAI" \
-  --query 'CloudFrontOriginAccessIdentity.Id' \
-  --output text)
-
-# Create distribution
-cat > cloudfront-config.json << EOF
-{
-  "Comment": "TSL-SignMap Frontend",
-  "Enabled": true,
-  "Origins": {
-    "Quantity": 1,
-    "Items": [{
-      "Id": "S3-tsl-signmap",
-      "DomainName": "${FRONTEND_BUCKET}.s3.amazonaws.com",
-      "S3OriginConfig": {
-        "OriginAccessIdentity": "origin-access-identity/cloudfront/${OAI_ID}"
-      }
-    }]
-  },
-  "DefaultRootObject": "index.html",
-  "DefaultCacheBehavior": {
-    "TargetOriginId": "S3-tsl-signmap",
-    "ViewerProtocolPolicy": "redirect-to-https",
-    "AllowedMethods": {
-      "Quantity": 2,
-      "Items": ["GET", "HEAD"]
-    },
-    "Compress": true,
-    "MinTTL": 0,
-    "DefaultTTL": 86400,
-    "MaxTTL": 31536000
-  },
-  "CustomErrorResponses": {
-    "Quantity": 1,
-    "Items": [{
-      "ErrorCode": 404,
-      "ResponsePagePath": "/index.html",
-      "ResponseCode": "200",
-      "ErrorCachingMinTTL": 300
-    }]
-  }
-}
-EOF
-
-DISTRIBUTION_ID=$(aws cloudfront create-distribution \
-  --distribution-config file://cloudfront-config.json \
-  --query 'Distribution.Id' \
-  --output text)
-
-# Get CloudFront domain
-DOMAIN=$(aws cloudfront get-distribution \
-  --id $DISTRIBUTION_ID \
-  --query 'Distribution.DomainName' \
-  --output text)
-
-echo "Frontend URL: https://$DOMAIN"
-```
-
----
-
-### Bước 5: Update S3 Bucket Policy
-
-```bash
-cat > bucket-policy.json << EOF
+```json
 {
   "Version": "2012-10-17",
-  "Statement": [{
-    "Sid": "AllowCloudFrontOAI",
-    "Effect": "Allow",
-    "Principal": {
-      "AWS": "arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${OAI_ID}"
-    },
-    "Action": "s3:GetObject",
-    "Resource": "arn:aws:s3:::${FRONTEND_BUCKET}/*"
-  }]
+  "Statement": [
+    {
+      "Sid": "AllowTSLMediaBucketAccessOnly",
+      "Effect": "Allow",
+      "Principal": "*",
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:ListBucket"
+      ],
+      "Resource": [
+        "arn:aws:s3:::tsl-signmap-media-bucket",
+        "arn:aws:s3:::tsl-signmap-media-bucket/*"
+      ]
+    }
+  ]
 }
-EOF
-
-aws s3api put-bucket-policy \
-  --bucket $FRONTEND_BUCKET \
-  --policy file://bucket-policy.json
 ```
 
 ---
 
-### Frontend Features
+#### 3. Các Bước Cấu Hình & Kiểm Tra Quyền Truy Cập
 
-**1. Authentication**
-```javascript
-// Login
-import { Auth } from 'aws-amplify';
+##### Bước 1: Đính kèm Policy vào S3 VPC Endpoint
+1. Truy cập **AWS VPC Console** -> chọn mục **Endpoints**.
+2. Chọn **S3 VPC Endpoint** đã khởi tạo (`s3-gwe`).
+3. Chọn thẻ **Policy**, nhấn **Edit Policy**.
+4. Dán đoạn JSON Policy giới hạn quyền ở trên và bấm **Save**.
 
-async function login(email, password) {
-  const user = await Auth.signIn(email, password);
-  return user;
-}
+##### Bước 2: Kiểm tra kết nối từ máy chủ EC2 Microservices
+1. Sử dụng AWS Session Manager kết nối vào máy chủ `EC2 Microservices Instance` trong Private App Subnet.
+2. Tải thử một tệp ảnh biển báo lên đúng S3 Media Bucket của hệ thống:
+   ```bash
+   aws s3 cp traffic_sign_001.jpg s3://tsl-signmap-media-bucket/
+   ```
+   *Kết quả:* Tệp được tải lên thành công qua dải mạng riêng tư.
 
-// Get current user
-const user = await Auth.currentAuthenticatedUser();
-const token = user.signInUserSession.idToken.jwtToken;
-```
-
-**2. Submit Sign**
-```javascript
-// Get upload URL
-const response = await fetch(
-  `${API_URL}/signs/upload-url?filename=sign.jpg`,
-  { headers: { Authorization: `Bearer ${token}` } }
-);
-const { uploadUrl, imageKey } = await response.json();
-
-// Upload image to S3
-await fetch(uploadUrl, {
-  method: 'PUT',
-  body: imageFile,
-  headers: { 'Content-Type': 'image/jpeg' }
-});
-
-// Submit sign metadata
-await fetch(`${API_URL}/signs`, {
-  method: 'POST',
-  headers: {
-    'Authorization': `Bearer ${token}`,
-    'Content-Type': 'application/json'
-  },
-  body: JSON.stringify({
-    location: { lat, lng },
-    signType: 'stop',
-    imageKey
-  })
-});
-```
-
-**3. Map Integration**
-```javascript
-import mapboxgl from 'mapbox-gl';
-
-const map = new mapboxgl.Map({
-  container: 'map',
-  style: 'mapbox://styles/mapbox/streets-v11',
-  center: [lng, lat],
-  zoom: 13
-});
-
-// Load nearby signs
-const response = await fetch(
-  `${API_URL}/signs/nearby?lat=${lat}&lng=${lng}&radius=2`,
-  { headers: { Authorization: `Bearer ${token}` } }
-);
-const signs = await response.json();
-
-// Add markers
-signs.forEach(sign => {
-  new mapboxgl.Marker()
-    .setLngLat([sign.location.lng, sign.location.lat])
-    .setPopup(new mapboxgl.Popup().setHTML(`<h3>${sign.signType}</h3>`))
-    .addTo(map);
-});
-```
+3. Kiểm tra tính năng bảo mật bằng cách tải tệp lên một S3 bucket bên ngoài bất kỳ:
+   ```bash
+   aws s3 cp traffic_sign_001.jpg s3://external-unauthorized-bucket/
+   ```
+   *Kết quả:* Hệ thống trả về lỗi `AccessDenied` do VPC Endpoint Policy chặn truy cập.
 
 ---
 
-### Testing
+#### 4. Tóm tắt
 
-```bash
-# Test locally
-npm start
-
-# Access at http://localhost:3000
-
-# Test production build
-npm run build
-npx serve -s build -p 3000
-```
-
-**Manual Testing:**
-1. Navigate to CloudFront URL
-2. Register new account
-3. Verify email
-4. Login
-5. Submit traffic sign with photo
-6. View on map
-7. Vote on other signs
-8. Check coin balance
-
----
-
-### CI/CD với GitHub Actions
-
-```yaml
-# .github/workflows/deploy.yml
-name: Deploy Frontend
-
-on:
-  push:
-    branches: [main]
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v2
-        with:
-          node-version: '18'
-      
-      - name: Install dependencies
-        run: npm ci
-        working-directory: ./frontend
-      
-      - name: Build
-        run: npm run build
-        working-directory: ./frontend
-      
-      - name: Deploy to S3
-        run: |
-          aws s3 sync build/ s3://${{ secrets.FRONTEND_BUCKET }}/ --delete
-        working-directory: ./frontend
-      
-      - name: Invalidate CloudFront
-        run: |
-          aws cloudfront create-invalidation \
-            --distribution-id ${{ secrets.DISTRIBUTION_ID }} \
-            --paths "/*"
-```
-
----
-
-### Performance Optimization
-
-| Technique | Implementation |
-|-----------|----------------|
-| Code splitting | React.lazy() for routes |
-| Image optimization | WebP format, lazy loading |
-| Caching | CloudFront + Service Worker |
-| Compression | Gzip/Brotli enabled |
-| CDN | CloudFront edge locations |
-
----
-
-### Cost Estimate
-
-| Service | Usage | Cost/month |
-|---------|-------|------------|
-| S3 | 100MB storage, 100K requests | $0.50 |
-| CloudFront | 50GB transfer, 1M requests | $4.50 |
-| Route 53 (optional) | Hosted zone | $0.50 |
-| **Total** | | **$5.50/month** |
-
----
-
-### Next: Testing
-
-```bash
-cd ../5.6-testing-cleanup/
-```
+Bằng việc cấu hình **S3 VPC Endpoint** và **SageMaker VPC Endpoint** kết hợp với **VPC Endpoint Policies**, hệ thống TSL-SignMap đã bảo vệ an toàn toàn bộ luồng truyền tải dữ liệu ảnh biển báo và mô hình AI. Điều này ngăn chặn triệt để nguy cơ lộ dữ liệu ra Internet công cộng và đảm bảo tính tuân thủ bảo mật cho hệ thống.

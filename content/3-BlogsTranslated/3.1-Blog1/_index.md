@@ -6,331 +6,62 @@ chapter: false
 pre: " <b> 3.1. </b> "
 ---
 
-## Automatic Traffic Sign Detection with YOLO and AWS SageMaker
+# SESSION POLICIES IN AMAZON EKS POD IDENTITY
 
-Automatic detection and classification of traffic signs is a critical component of the TSL-SignMap system. This article demonstrates how to deploy a YOLO model on AWS SageMaker to process images from the community.
+Amazon EKS Pod Identity has recently added the **session policies** feature, allowing you to narrow IAM permissions flexibly and precisely for each pod without needing to create many separate IAM roles. This is an important step forward that helps apply the principle of **least privilege** more effectively in large-scale Kubernetes environments.
 
----
+### Key points to know:
 
-## Why AI Detection?
+* **What is a Session Policy?**: An inline IAM policy specified when creating or updating a Pod Identity association.
+* **Effective Permissions Principle**: Effective permissions = intersection between the IAM role permissions and the session policy → the session policy can only narrow permissions, not expand them.
+* **Optimizing IAM Roles**: Helps avoid over-permissioning when reusing a single IAM role for multiple workloads with different needs.
+* **Flexible Support**: Supports both same-account and cross-account scenarios (via IAM role chaining).
+* **Avoiding Quota Limits**: Significantly reduces the number of IAM roles that need to be created and managed, helping avoid hitting IAM quota limits in large clusters.
+* **Multiple Configuration Methods**: Easily configured through the AWS Management Console, AWS CLI, or AWS SDK when creating an association between a Kubernetes ServiceAccount and an IAM role.
 
-| Reason | Benefit |
-|--------|---------|
-| Reduce manual effort | Admins don't need to verify every image |
-| Increase accuracy | Model learns from thousands of sample images |
-| Automatic classification | Recognize sign types (prohibitory, warning, information) |
-| Fast processing | Results in seconds instead of minutes |
-| Scalability | Process thousands of images simultaneously |
-
----
-
-## YOLO - You Only Look Once
-
-**YOLO Advantages**
-
-```
-- Real-time detection: 30+ FPS
-- Single neural network: Looks at entire image once
-- High accuracy: 80-90% mAP on traffic signs
-- Small model size: Suitable for mobile deployment
-```
-
-**YOLOv8 Architecture**
-
-| Component | Function |
-|-----------|----------|
-| Backbone | Extract features from image (CSPDarknet) |
-| Neck | Aggregate features at multiple scales (PANet) |
-| Head | Predict bounding boxes and classes |
+This feature is especially useful when you have many applications running on the same IAM role but need different permission restrictions (for example: one pod only reads a specific S3 bucket, another pod only calls certain APIs).
 
 ---
 
-## Dataset Preparation
-
-**Traffic Sign Dataset Structure**
-
-```bash
-traffic-signs/
-├── images/
-│   ├── train/
-│   │   ├── sign_001.jpg
-│   │   └── sign_002.jpg
-│   └── val/
-│       └── sign_test.jpg
-└── labels/
-    ├── train/
-    │   ├── sign_001.txt  # YOLO format
-    │   └── sign_002.txt
-    └── val/
-        └── sign_test.txt
-```
-
-**YOLO Label Format**
-
-```
-# Format: <class_id> <x_center> <y_center> <width> <height>
-0 0.5 0.5 0.3 0.4  # Class 0: Stop sign
-1 0.7 0.3 0.2 0.3  # Class 1: Speed limit
-```
-
-**Classes Definition**
-
-```yaml
-# data.yaml
-train: ./images/train
-val: ./images/val
-nc: 50  # Number of classes
-names: ['stop', 'speed_limit_50', 'no_entry', 'yield', ...]
-```
+### Facebook Post Link
+- **Post Link**: [https://www.facebook.com/share/p/14mL1ERofZM/](https://www.facebook.com/share/p/14mL1ERofZM/)
 
 ---
 
-## Training on AWS SageMaker
+### Step-by-Step Guide: Configuring Session Policies in EKS Pod Identity
 
-**Setup Environment**
+#### 1. Create a Shared IAM Role for Pod Identity
+Create an IAM Role with a Trust Policy allowing the EKS Pod Identity service (`eks-pod-identity.amazonaws.com`) to assume the role:
 
-```python
-import sagemaker
-from sagemaker.pytorch import PyTorch
-
-# Initialize SageMaker session
-session = sagemaker.Session()
-role = "arn:aws:iam::123456789:role/SageMakerRole"
-bucket = "tsl-signmap-data"
-
-# Upload dataset to S3
-train_data = session.upload_data(
-    path='traffic-signs/images/train',
-    bucket=bucket,
-    key_prefix='datasets/train'
-)
-```
-
-**Training Script**
-
-```python
-# train.py
-from ultralytics import YOLO
-
-def train_model():
-    # Load pretrained YOLOv8
-    model = YOLO('yolov8n.pt')
-    
-    # Train on traffic signs
-    results = model.train(
-        data='data.yaml',
-        epochs=100,
-        imgsz=640,
-        batch=16,
-        device='cuda',
-        project='/opt/ml/model',
-        name='traffic_signs'
-    )
-    
-    # Export model
-    model.export(format='onnx')
-    
-if __name__ == '__main__':
-    train_model()
-```
-
-**SageMaker Training Job**
-
-```python
-estimator = PyTorch(
-    entry_point='train.py',
-    role=role,
-    instance_type='ml.p3.2xlarge',  # GPU instance
-    instance_count=1,
-    framework_version='2.0',
-    py_version='py310',
-    hyperparameters={
-        'epochs': 100,
-        'batch-size': 16
-    }
-)
-
-estimator.fit({'training': train_data})
-```
-
----
-
-## Deploy Model Endpoint
-
-**Create Inference Script**
-
-```python
-# inference.py
-import json
-import torch
-from ultralytics import YOLO
-
-def model_fn(model_dir):
-    """Load model"""
-    model = YOLO(f'{model_dir}/best.pt')
-    return model
-
-def predict_fn(input_data, model):
-    """Run inference"""
-    results = model(input_data, conf=0.5)
-    
-    predictions = []
-    for result in results:
-        boxes = result.boxes
-        for box in boxes:
-            predictions.append({
-                'class': int(box.cls),
-                'confidence': float(box.conf),
-                'bbox': box.xyxy.tolist()[0]
-            })
-    
-    return predictions
-```
-
-**Deploy Endpoint**
-
-```python
-from sagemaker.pytorch import PyTorchModel
-
-model = PyTorchModel(
-    model_data=estimator.model_data,
-    role=role,
-    entry_point='inference.py',
-    framework_version='2.0',
-    py_version='py310'
-)
-
-predictor = model.deploy(
-    instance_type='ml.t3.medium',
-    initial_instance_count=1,
-    endpoint_name='traffic-sign-detector'
-)
-```
-
----
-
-## Integration with Lambda
-
-**Lambda Function**
-
-```python
-import boto3
-import json
-import base64
-
-sagemaker = boto3.client('sagemaker-runtime')
-s3 = boto3.client('s3')
-
-def lambda_handler(event, context):
-    # Get image from S3
-    bucket = event['bucket']
-    key = event['key']
-    
-    # Download image
-    obj = s3.get_object(Bucket=bucket, Key=key)
-    image_bytes = obj['Body'].read()
-    
-    # Invoke SageMaker endpoint
-    response = sagemaker.invoke_endpoint(
-        EndpointName='traffic-sign-detector',
-        ContentType='application/x-image',
-        Body=image_bytes
-    )
-    
-    # Parse results
-    predictions = json.loads(response['Body'].read())
-    
-    # Filter high confidence detections
-    signs = [p for p in predictions if p['confidence'] > 0.7]
-    
-    return {
-        'statusCode': 200,
-        'body': json.dumps({
-            'signs_detected': len(signs),
-            'detections': signs
-        })
-    }
-```
-
-**API Gateway Integration**
-
-```bash
-# User uploads image
-POST /api/signs/detect
-Content-Type: multipart/form-data
-
-# Response
+```json
 {
-  "signs_detected": 2,
-  "detections": [
+  "Version": "2012-10-17",
+  "Statement": [
     {
-      "class": 0,
-      "class_name": "stop",
-      "confidence": 0.92,
-      "bbox": [120, 45, 340, 290]
-    },
-    {
-      "class": 15,
-      "class_name": "speed_limit_50",
-      "confidence": 0.87,
-      "bbox": [450, 100, 600, 280]
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "pods.eks.amazonaws.com"
+      },
+      "Action": [
+        "sts:AssumeRole",
+        "sts:TagSession"
+      ]
     }
   ]
 }
 ```
 
----
+#### 2. Define the Session Policy when Creating a Pod Identity Association
+Use the AWS CLI to create an association between a Kubernetes ServiceAccount and the IAM Role, passing an inline Session Policy to restrict permissions:
 
-## Optimization Tips
-
-| Technique | Purpose |
-|-----------|---------|
-| Model Quantization | Reduce model size 4x, speed up inference |
-| Batch Inference | Process multiple images at once |
-| SageMaker Auto-scaling | Scale endpoint based on traffic |
-| Lambda + SQS | Asynchronous image processing, cost savings |
-| Edge Deployment | Deploy YOLO on mobile app (offline mode) |
-
-**Cost Optimization**
-
-```python
-# Use Lambda instead of SageMaker endpoint for low traffic
-import torch
-
-# Load model in Lambda (cold start ~3s)
-model = torch.jit.load('/tmp/model.pt')
-
-# Inference
-results = model(image)
-
-# Cost: $0.0000166667/GB-second instead of $0.05/hour endpoint
+```bash
+aws eks create-pod-identity-association \
+  --cluster-name my-eks-cluster \
+  --namespace default \
+  --service-account my-app-sa \
+  --role-arn arn:aws:iam::123456789012:role/MySharedPodRole \
+  --service-account-association-options '{"sessionPolicy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"s3:GetObject\"],\"Resource\":\"arn:aws:s3:::my-app-bucket/*\"}]}"}'
 ```
 
----
-
-## Evaluation Results
-
-| Metric | Value |
-|--------|-------|
-| mAP@0.5 | 89.3% |
-| Precision | 91.2% |
-| Recall | 87.5% |
-| Inference time | 45ms/image (GPU) |
-| Model size | 6.2 MB (YOLOv8n) |
-| False positive rate | 3.2% |
-
----
-
-## Conclusion
-
-YOLO on AWS SageMaker provides a powerful AI detection solution for TSL-SignMap:
-- Easy training with GPU instances
-- Deploy scalable endpoint
-- Seamless integration with Lambda and mobile app
-- Optimal cost with auto-scaling
-
-**References:** 
-- <https://docs.ultralytics.com/models/yolov8/>
-- <https://docs.aws.amazon.com/sagemaker/latest/dg/pytorch.html>
-
----
+#### 3. Verify Effective Permissions Inside the Pod
+When the application inside the Pod makes requests to AWS services, the EKS Pod Identity Agent automatically supplies temporary credentials scoped by the Session Policy. The Pod will only be able to access resources explicitly permitted within the defined Session Policy.

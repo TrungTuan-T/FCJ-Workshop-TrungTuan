@@ -1,291 +1,57 @@
 ---
-title: "Monitoring & Logging"
-date: 2026-07-10
+title: "Configure AWS WAF Firewall & Edge Monitoring"
+date: 2026-07-22
 weight: 4
 chapter: false
 ---
 
-### Overview
+#### 1. Step 5.4.4 Overview
 
-Setup CloudWatch monitoring and logging for TSL-SignMap API.
+In this step, you will deploy an **AWS WAF (Web Application Firewall)** web ACL at the **Global Edge Services** layer attached directly to your **CloudFront CDN** distribution.
 
----
-
-### Step 1: Enable CloudWatch Logs
-
-```bash
-# Create log role
-cat > api-logging-trust.json << 'EOF'
-{
-  "Version": "2012-10-17",
-  "Statement": [{
-    "Effect": "Allow",
-    "Principal": { "Service": "apigateway.amazonaws.com" },
-    "Action": "sts:AssumeRole"
-  }]
-}
-EOF
-
-aws iam create-role \
-  --role-name APIGatewayLogsRole \
-  --assume-role-policy-document file://api-logging-trust.json
-
-aws iam attach-role-policy \
-  --role-name APIGatewayLogsRole \
-  --policy-arn arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs
-
-# Set account role
-ROLE_ARN=$(aws iam get-role --role-name APIGatewayLogsRole --query 'Role.Arn' --output text)
-
-aws apigateway update-account \
-  --patch-operations op=replace,path=/cloudwatchRoleArn,value=$ROLE_ARN
-```
+- **Goal:** Protect the React Admin Web interface and backend APIs against cyber exploits such as SQL Injection, Cross-Site Scripting (XSS), HTTP Flood / DDoS attacks, and malicious bots.
 
 ---
 
-### Step 2: Configure Stage Logging
+#### 2. Step-by-Step Implementation
 
-```bash
-aws apigateway update-stage \
-  --rest-api-id $API_ID \
-  --stage-name prod \
-  --patch-operations \
-    op=replace,path=/accessLogSettings/destinationArn,value=arn:aws:logs:us-east-1:$(aws sts get-caller-identity --query Account --output text):log-group:tsl-api-access-logs \
-    op=replace,path=/accessLogSettings/format,value='$context.requestId $context.extendedRequestId $context.identity.sourceIp $context.requestTime $context.routeKey $context.status' \
-    op=replace,path=/*/*/logging/loglevel,value=INFO \
-    op=replace,path=/*/*/logging/dataTrace,value=true \
-    op=replace,path=/*/*/metrics/enabled,value=true
+##### Step 1: Provision AWS WAF Web ACL
+1. Open **AWS WAF & Shield Console**, and click **Web ACLs** in the left navigation pane.
+2. Resource type: Select **Global resources (CloudFront distribution)**.
+3. Click **Create web ACL**.
+4. Name: Enter `tsl-signmap-edge-waf-acl`.
+5. CloudFront distributions to associate: Select the CloudFront Distribution created in step 5.4.2.
+6. Click **Next**.
 
-# Create log group
-aws logs create-log-group --log-group-name tsl-api-access-logs
-aws logs put-retention-policy \
-  --log-group-name tsl-api-access-logs \
-  --retention-in-days 7
-```
+##### Step 2: Add Managed Protection Rule Sets
+1. Under **Add rules and rule groups**, click **Add rules** -> select **Add managed rule groups**.
+2. **AWS managed rule groups:**
+   - Enable **Core rule set (CRS):** Protects against OWASP Top 10 web security vulnerabilities.
+   - Enable **Known bad inputs:** Blocks request patterns containing malformed code payloads.
+   - Enable **Amazon IP reputation list:** Blocks IP addresses flagged on AWS threat intelligence lists.
+3. Click **Add rules**.
 
----
+##### Step 3: Add Rate-based Rule for DDoS / Brute-Force Prevention
+1. Click **Add rules** -> select **Add my own rules and rule groups**.
+2. Rule type: Select **Rate-based rule**.
+3. Rule name: Enter `PreventDDoSAndBruteForce`.
+4. Rate limit: Enter `2000` (max 2000 requests per IP address within 5-minute window).
+5. Action: Select **Block**.
+6. Click **Add rule**.
 
-### Step 3: Create CloudWatch Dashboard
-
-```bash
-cat > dashboard.json << EOF
-{
-  "widgets": [
-    {
-      "type": "metric",
-      "properties": {
-        "metrics": [
-          ["AWS/ApiGateway", "Count", {"stat": "Sum", "label": "Total Requests"}],
-          [".", "4XXError", {"stat": "Sum", "label": "4XX Errors"}],
-          [".", "5XXError", {"stat": "Sum", "label": "5XX Errors"}]
-        ],
-        "period": 300,
-        "stat": "Average",
-        "region": "us-east-1",
-        "title": "API Gateway Metrics",
-        "dimensions": {
-          "ApiName": ["tsl-signmap-api"]
-        }
-      }
-    },
-    {
-      "type": "metric",
-      "properties": {
-        "metrics": [
-          ["AWS/ApiGateway", "Latency", {"stat": "Average"}],
-          ["...", {"stat": "p99"}]
-        ],
-        "period": 300,
-        "stat": "Average",
-        "region": "us-east-1",
-        "title": "API Latency",
-        "dimensions": {
-          "ApiName": ["tsl-signmap-api"]
-        }
-      }
-    },
-    {
-      "type": "metric",
-      "properties": {
-        "metrics": [
-          ["AWS/Lambda", "Invocations", {"stat": "Sum"}],
-          [".", "Errors", {"stat": "Sum"}],
-          [".", "Duration", {"stat": "Average"}]
-        ],
-        "period": 300,
-        "stat": "Average",
-        "region": "us-east-1",
-        "title": "Lambda Metrics"
-      }
-    }
-  ]
-}
-EOF
-
-aws cloudwatch put-dashboard \
-  --dashboard-name TSL-SignMap-API \
-  --dashboard-body file://dashboard.json
-```
+##### Step 4: Finalize & Attach Web ACL
+1. Set rule evaluation priority and click **Next**.
+2. Metric name: Retain default metrics forwarding to **Amazon CloudWatch**.
+3. Click **Create web ACL**.
 
 ---
 
-### Step 4: Setup Alarms
+#### 3. Edge Traffic Verification & Monitoring
 
-```bash
-# High error rate alarm
-aws cloudwatch put-metric-alarm \
-  --alarm-name tsl-api-high-4xx \
-  --alarm-description "Alert when 4XX error rate is high" \
-  --metric-name 4XXError \
-  --namespace AWS/ApiGateway \
-  --statistic Sum \
-  --period 300 \
-  --threshold 10 \
-  --comparison-operator GreaterThanThreshold \
-  --evaluation-periods 2 \
-  --dimensions Name=ApiName,Value=tsl-signmap-api
+1. Send a simulated XSS exploit request against the CloudFront domain:
+   ```bash
+   curl -I "https://admin.tsl-signmap.com/?q=<script>alert('xss')</script>"
+   ```
+2. **Result:** AWS WAF inspects and blocks the request, returning `HTTP 403 Forbidden`.
 
-# High latency alarm
-aws cloudwatch put-metric-alarm \
-  --alarm-name tsl-api-high-latency \
-  --alarm-description "Alert when API latency is high" \
-  --metric-name Latency \
-  --namespace AWS/ApiGateway \
-  --statistic Average \
-  --period 300 \
-  --threshold 1000 \
-  --comparison-operator GreaterThanThreshold \
-  --evaluation-periods 2 \
-  --dimensions Name=ApiName,Value=tsl-signmap-api
-
-# Lambda errors
-aws cloudwatch put-metric-alarm \
-  --alarm-name tsl-lambda-errors \
-  --alarm-description "Alert on Lambda errors" \
-  --metric-name Errors \
-  --namespace AWS/Lambda \
-  --statistic Sum \
-  --period 300 \
-  --threshold 5 \
-  --comparison-operator GreaterThanThreshold \
-  --evaluation-periods 1
-```
-
----
-
-### Step 5: Query Logs with CloudWatch Insights
-
-```bash
-# Example query: Top error endpoints
-aws logs start-query \
-  --log-group-name tsl-api-access-logs \
-  --start-time $(date -u -d '1 hour ago' +%s) \
-  --end-time $(date -u +%s) \
-  --query-string 'fields @timestamp, @message
-    | filter @message like /ERROR/
-    | stats count() by routeKey
-    | sort count desc
-    | limit 10'
-```
-
-**Query examples:**
-
-```sql
--- Request latency distribution
-fields @timestamp, routeKey, status, @duration
-| filter status >= 200
-| stats avg(@duration), max(@duration), pct(@duration, 95) by routeKey
-
--- Error analysis
-fields @timestamp, @message, routeKey, status
-| filter status >= 400
-| stats count() by status, routeKey
-
--- User activity
-fields @timestamp, sourceIp, routeKey
-| stats count() by sourceIp
-| sort count desc
-| limit 20
-```
-
----
-
-### Step 6: Enable X-Ray Tracing
-
-```bash
-# Enable tracing
-aws apigateway update-stage \
-  --rest-api-id $API_ID \
-  --stage-name prod \
-  --patch-operations op=replace,path=/tracingEnabled,value=true
-
-# Update Lambda functions
-for FUNC in sign-submit sign-query sign-vote; do
-  aws lambda update-function-configuration \
-    --function-name tsl-signmap-$FUNC \
-    --tracing-config Mode=Active
-done
-
-# Grant X-Ray permissions
-cat > xray-policy.json << 'EOF'
-{
-  "Version": "2012-10-17",
-  "Statement": [{
-    "Effect": "Allow",
-    "Action": [
-      "xray:PutTraceSegments",
-      "xray:PutTelemetryRecords"
-    ],
-    "Resource": "*"
-  }]
-}
-EOF
-
-aws iam put-role-policy \
-  --role-name tsl-signmap-lambda-role \
-  --policy-name XRayPolicy \
-  --policy-document file://xray-policy.json
-```
-
----
-
-### Verification
-
-```bash
-# View recent logs
-aws logs tail tsl-api-access-logs --follow
-
-# Check metrics
-aws cloudwatch get-metric-statistics \
-  --namespace AWS/ApiGateway \
-  --metric-name Count \
-  --dimensions Name=ApiName,Value=tsl-signmap-api \
-  --start-time $(date -u -d '1 hour ago' --iso-8601=seconds) \
-  --end-time $(date -u --iso-8601=seconds) \
-  --period 300 \
-  --statistics Sum
-
-# View dashboard
-echo "Dashboard: https://console.aws.amazon.com/cloudwatch/home?region=us-east-1#dashboards:name=TSL-SignMap-API"
-
-# View X-Ray traces
-echo "X-Ray: https://console.aws.amazon.com/xray/home?region=us-east-1#/service-map"
-```
-
----
-
-### Cost Estimate
-
-| Service | Usage | Cost/month |
-|---------|-------|------------|
-| CloudWatch Logs | 5GB ingestion, 7 days retention | $2.50 |
-| CloudWatch Metrics | 50 custom metrics | $0.30 |
-| CloudWatch Alarms | 3 alarms | $0.30 |
-| X-Ray | 1M requests traced | $5.00 |
-| **Total** | | **$8.10/month** |
-
----
-
-### Complete!
-
-You've successfully setup Backend API with full monitoring and logging for TSL-SignMap! 🎉
+3. Open **Amazon CloudWatch Console** -> select **Metrics** -> view `AllowedRequests` vs `BlockedRequests` metrics graphs to monitor real-time edge security traffic.

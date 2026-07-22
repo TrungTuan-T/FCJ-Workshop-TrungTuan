@@ -6,331 +6,62 @@ chapter: false
 pre: " <b> 3.1. </b> "
 ---
 
-## Phát hiện biển báo giao thông tự động với YOLO và AWS SageMaker
+# SESSION POLICIES TRONG AMAZON EKS POD IDENTITY
 
-Việc phát hiện và phân loại biển báo giao thông tự động là thành phần quan trọng của hệ thống TSL-SignMap. Bài viết này trình bày cách triển khai YOLO model trên AWS SageMaker để xử lý hình ảnh từ cộng đồng.
+Amazon EKS Pod Identity vừa bổ sung tính năng **session policies**, cho phép bạn thu hẹp quyền IAM một cách linh hoạt và chính xác cho từng pod mà không cần tạo thêm nhiều IAM roles riêng biệt. Đây là bước tiến quan trọng giúp áp dụng nguyên tắc **least privilege** hiệu quả hơn trong môi trường Kubernetes quy mô lớn.
 
----
+### Các điểm chính cần nắm:
 
-## Tại sao cần AI Detection?
+* **Session policy là gì?**: Là một IAM policy inline được chỉ định khi tạo hoặc cập nhật một Pod Identity association.
+* **Nguyên lý phân quyền hiệu quả**: Quyền thực tế (*Effective permissions*) = Giao (*Intersection*) giữa permissions của IAM role gốc và session policy. Do đó, session policy chỉ có thể thu hẹp chứ không thể mở rộng thêm quyền so với role gốc.
+* **Tối ưu hóa số lượng IAM Role**: Giúp tránh tình trạng over-permissioning khi tái sử dụng chung một IAM role cho nhiều workloads khác nhau.
+* **Hỗ trợ linh hoạt**: Hỗ trợ cả mô hình cùng tài khoản (*same-account*) và liên tài khoản (*cross-account*) thông qua IAM role chaining.
+* **Tránh giới hạn Quota**: Giảm đáng kể số lượng IAM roles cần tạo và quản lý, tránh chạm mốc giới hạn quota IAM trong các Kubernetes cluster lớn.
+* **Cấu hình đa dạng**: Thao tác dễ dàng thông qua AWS Management Console, AWS CLI hoặc AWS SDK khi liên kết Kubernetes ServiceAccount với IAM role.
 
-| Lý do | Lợi ích |
-|-------|---------|
-| Giảm công sức thủ công | Admin không phải xác minh từng ảnh |
-| Tăng độ chính xác | Model học từ hàng nghìn ảnh mẫu |
-| Phân loại tự động | Nhận diện loại biển báo (cấm, cảnh báo, chỉ dẫn) |
-| Xử lý nhanh | Kết quả trong vài giây thay vì vài phút |
-| Scalability | Xử lý hàng nghìn ảnh đồng thời |
-
----
-
-## YOLO - You Only Look Once
-
-**Ưu điểm của YOLO**
-
-```
-- Real-time detection: 30+ FPS
-- Single neural network: Nhìn toàn bộ ảnh một lần
-- High accuracy: 80-90% mAP trên traffic signs
-- Small model size: Phù hợp deploy trên mobile
-```
-
-**YOLOv8 Architecture**
-
-| Component | Function |
-|-----------|----------|
-| Backbone | Extract features từ ảnh (CSPDarknet) |
-| Neck | Tổng hợp features ở nhiều scale (PANet) |
-| Head | Predict bounding boxes và classes |
+Tính năng này đặc biệt hữu ích khi bạn có nhiều ứng dụng chạy trên cùng một IAM role nhưng cần giới hạn quyền khác nhau (ví dụ: một pod chỉ có quyền đọc từ một S3 bucket cụ thể, trong khi pod khác chỉ được phép gọi một số AWS API định sẵn).
 
 ---
 
-## Dataset preparation
-
-**Traffic Sign Dataset Structure**
-
-```bash
-traffic-signs/
-├── images/
-│   ├── train/
-│   │   ├── sign_001.jpg
-│   │   └── sign_002.jpg
-│   └── val/
-│       └── sign_test.jpg
-└── labels/
-    ├── train/
-    │   ├── sign_001.txt  # YOLO format
-    │   └── sign_002.txt
-    └── val/
-        └── sign_test.txt
-```
-
-**YOLO Label Format**
-
-```
-# Format: <class_id> <x_center> <y_center> <width> <height>
-0 0.5 0.5 0.3 0.4  # Class 0: Stop sign
-1 0.7 0.3 0.2 0.3  # Class 1: Speed limit
-```
-
-**Classes Definition**
-
-```yaml
-# data.yaml
-train: ./images/train
-val: ./images/val
-nc: 50  # Number of classes
-names: ['stop', 'speed_limit_50', 'no_entry', 'yield', ...]
-```
+### Link bài đăng Facebook
+- **Đường dẫn bài viết**: [https://www.facebook.com/share/p/14mL1ERofZM/](https://www.facebook.com/share/p/14mL1ERofZM/)
 
 ---
 
-## Training trên AWS SageMaker
+### Hướng dẫn chi tiết cấu hình Session Policy cho EKS Pod Identity
 
-**Setup Environment**
+#### 1. Tạo IAM Role chung cho Pod Identity
+Tạo một IAM Role với Trust Policy cho phép dịch vụ EKS Pod Identity giả lập (`eks-pod-identity.amazonaws.com`):
 
-```python
-import sagemaker
-from sagemaker.pytorch import PyTorch
-
-# Initialize SageMaker session
-session = sagemaker.Session()
-role = "arn:aws:iam::123456789:role/SageMakerRole"
-bucket = "tsl-signmap-data"
-
-# Upload dataset to S3
-train_data = session.upload_data(
-    path='traffic-signs/images/train',
-    bucket=bucket,
-    key_prefix='datasets/train'
-)
-```
-
-**Training Script**
-
-```python
-# train.py
-from ultralytics import YOLO
-
-def train_model():
-    # Load pretrained YOLOv8
-    model = YOLO('yolov8n.pt')
-    
-    # Train on traffic signs
-    results = model.train(
-        data='data.yaml',
-        epochs=100,
-        imgsz=640,
-        batch=16,
-        device='cuda',
-        project='/opt/ml/model',
-        name='traffic_signs'
-    )
-    
-    # Export model
-    model.export(format='onnx')
-    
-if __name__ == '__main__':
-    train_model()
-```
-
-**SageMaker Training Job**
-
-```python
-estimator = PyTorch(
-    entry_point='train.py',
-    role=role,
-    instance_type='ml.p3.2xlarge',  # GPU instance
-    instance_count=1,
-    framework_version='2.0',
-    py_version='py310',
-    hyperparameters={
-        'epochs': 100,
-        'batch-size': 16
-    }
-)
-
-estimator.fit({'training': train_data})
-```
-
----
-
-## Deploy Model Endpoint
-
-**Create Inference Script**
-
-```python
-# inference.py
-import json
-import torch
-from ultralytics import YOLO
-
-def model_fn(model_dir):
-    """Load model"""
-    model = YOLO(f'{model_dir}/best.pt')
-    return model
-
-def predict_fn(input_data, model):
-    """Run inference"""
-    results = model(input_data, conf=0.5)
-    
-    predictions = []
-    for result in results:
-        boxes = result.boxes
-        for box in boxes:
-            predictions.append({
-                'class': int(box.cls),
-                'confidence': float(box.conf),
-                'bbox': box.xyxy.tolist()[0]
-            })
-    
-    return predictions
-```
-
-**Deploy Endpoint**
-
-```python
-from sagemaker.pytorch import PyTorchModel
-
-model = PyTorchModel(
-    model_data=estimator.model_data,
-    role=role,
-    entry_point='inference.py',
-    framework_version='2.0',
-    py_version='py310'
-)
-
-predictor = model.deploy(
-    instance_type='ml.t3.medium',
-    initial_instance_count=1,
-    endpoint_name='traffic-sign-detector'
-)
-```
-
----
-
-## Tích hợp với Lambda
-
-**Lambda Function**
-
-```python
-import boto3
-import json
-import base64
-
-sagemaker = boto3.client('sagemaker-runtime')
-s3 = boto3.client('s3')
-
-def lambda_handler(event, context):
-    # Get image from S3
-    bucket = event['bucket']
-    key = event['key']
-    
-    # Download image
-    obj = s3.get_object(Bucket=bucket, Key=key)
-    image_bytes = obj['Body'].read()
-    
-    # Invoke SageMaker endpoint
-    response = sagemaker.invoke_endpoint(
-        EndpointName='traffic-sign-detector',
-        ContentType='application/x-image',
-        Body=image_bytes
-    )
-    
-    # Parse results
-    predictions = json.loads(response['Body'].read())
-    
-    # Filter high confidence detections
-    signs = [p for p in predictions if p['confidence'] > 0.7]
-    
-    return {
-        'statusCode': 200,
-        'body': json.dumps({
-            'signs_detected': len(signs),
-            'detections': signs
-        })
-    }
-```
-
-**API Gateway Integration**
-
-```bash
-# User uploads image
-POST /api/signs/detect
-Content-Type: multipart/form-data
-
-# Response
+```json
 {
-  "signs_detected": 2,
-  "detections": [
+  "Version": "2012-10-17",
+  "Statement": [
     {
-      "class": 0,
-      "class_name": "stop",
-      "confidence": 0.92,
-      "bbox": [120, 45, 340, 290]
-    },
-    {
-      "class": 15,
-      "class_name": "speed_limit_50",
-      "confidence": 0.87,
-      "bbox": [450, 100, 600, 280]
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "pods.eks.amazonaws.com"
+      },
+      "Action": [
+        "sts:AssumeRole",
+        "sts:TagSession"
+      ]
     }
   ]
 }
 ```
 
----
+#### 2. Định nghĩa Session Policy khi tạo Pod Identity Association
+Sử dụng AWS CLI để tạo association giữa Kubernetes ServiceAccount và IAM Role, đồng thời truyền inline Session Policy để thu hẹp quyền:
 
-## Optimization Tips
-
-| Kỹ thuật | Mục đích |
-|----------|----------|
-| Model Quantization | Giảm model size 4x, tăng tốc inference |
-| Batch Inference | Xử lý nhiều ảnh cùng lúc |
-| SageMaker Auto-scaling | Scale endpoint theo traffic |
-| Lambda + SQS | Xử lý ảnh bất đồng bộ, tiết kiệm chi phí |
-| Edge Deployment | Deploy YOLO trên mobile app (offline mode) |
-
-**Cost Optimization**
-
-```python
-# Sử dụng Lambda thay vì SageMaker endpoint cho traffic thấp
-import torch
-
-# Load model trong Lambda (cold start ~3s)
-model = torch.jit.load('/tmp/model.pt')
-
-# Inference
-results = model(image)
-
-# Chi phí: $0.0000166667/GB-second thay vì $0.05/hour endpoint
+```bash
+aws eks create-pod-identity-association \
+  --cluster-name my-eks-cluster \
+  --namespace default \
+  --service-account my-app-sa \
+  --role-arn arn:aws:iam::123456789012:role/MySharedPodRole \
+  --service-account-association-options '{"sessionPolicy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"s3:GetObject\"],\"Resource\":\"arn:aws:s3:::my-app-bucket/*\"}]}"}'
 ```
 
----
-
-## Kết quả đánh giá
-
-| Metric | Value |
-|--------|-------|
-| mAP@0.5 | 89.3% |
-| Precision | 91.2% |
-| Recall | 87.5% |
-| Inference time | 45ms/image (GPU) |
-| Model size | 6.2 MB (YOLOv8n) |
-| False positive rate | 3.2% |
-
----
-
-## Kết luận
-
-YOLO trên AWS SageMaker cung cấp giải pháp AI detection mạnh mẽ cho TSL-SignMap:
-- Training dễ dàng với GPU instances
-- Deploy scalable endpoint
-- Tích hợp liền mạch với Lambda và mobile app
-- Chi phí tối ưu với auto-scaling
-
-**Nguồn tham khảo:** 
-- <https://docs.ultralytics.com/models/yolov8/>
-- <https://docs.aws.amazon.com/sagemaker/latest/dg/pytorch.html>
-
----
+#### 3. Kiểm tra và xác nhận quyền hạn thực tế trong Pod
+Khi ứng dụng trong Pod gửi request đến dịch vụ AWS, EKS Pod Identity Agent sẽ tự động cung cấp temporary credentials đã được áp dụng Session Policy. Pod sẽ chỉ truy cập được các tài nguyên được cho phép trong phạm vi Session Policy đã định nghĩa.

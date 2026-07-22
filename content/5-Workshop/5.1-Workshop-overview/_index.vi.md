@@ -1,198 +1,147 @@
 ---
-title : "Giới thiệu"
-date : 2026 
+title : "Tổng quan hệ thống TSL-SignMap và Hạ tầng AWS"
+date : 2026-07-22 
 weight : 1
 chapter : false
 pre : " <b> 5.1. </b> "
 ---
 
-### TSL-SignMap là gì?
+#### 1. Tổng quan Hệ thống TSL-SignMap
 
-**TSL-SignMap** là hệ thống quản lý vị trí biển báo giao thông dựa trên cộng đồng, tích hợp AI detection và voting system, được xây dựng trên kiến trúc serverless AWS.
+**TSL-SignMap** là hệ thống quản lý, đóng góp và tra cứu thông tin biển báo giao thông không gian GIS (chuẩn dữ liệu địa lý SRID 4326), được vận hành trên hạ tầng đám mây AWS với thiết kế **VPC 3-Tier Multi-AZ**, các máy chủ **AWS EC2 Instances**, tích hợp **AI SageMaker (YOLO)** và CSDL **RDS SQL Server 2022**.
 
-**Đặc điểm:**
-- Crowdsourcing từ cộng đồng
-- AI Detection với YOLO model
-- Voting system để xác minh dữ liệu
-- Real-time map integration
-- Scalable và cost-effective
+Hệ thống được phát triển nhằm giải quyết bài toán quản lý biển báo giao thông tập trung, cho phép người dùng tra cứu vị trí, gửi đóng góp biển báo mới, hỗ trợ nhận diện biển báo qua hình ảnh AI và đồng bộ tự động dữ liệu từ OpenStreetMap.
 
-**Ba nhóm người dùng:**
-
-| Vai trò | Quyền hạn | Chức năng chính |
-|---------|-----------|-----------------|
-| **Admin** | Full access | Quản lý users, approve/reject signs, monitor system |
-| **Contributors** | Submit & vote | Báo cáo biển báo mới, vote cho submissions, earn coins |
-| **Drivers** | View only | Xem bản đồ biển báo, tra cứu location |
+- **Đường dẫn ứng dụng Static Web (AWS S3 Hosting):** [http://tsl-signmap-production-static-web-ckroy7.s3-website-ap-southeast-1.amazonaws.com/](http://tsl-signmap-production-static-web-ckroy7.s3-website-ap-southeast-1.amazonaws.com/)
 
 ---
 
-### Tổng quan Workshop
+#### 2. Danh sách 9 Dịch Vụ AWS Chính Thức Trong Hạ Tầng
 
-Workshop này hướng dẫn triển khai TSL-SignMap hoàn chỉnh trên AWS trong 6 bước:
-
-#### Bước 1: Infrastructure Setup
-Tạo DynamoDB tables, S3 buckets, Cognito User Pool cho authentication.
-
-#### Bước 2: Backend API Development
-Deploy Lambda functions, API Gateway endpoints cho submit/vote/query signs.
-
-#### Bước 3: AI Integration
-Setup SageMaker endpoint với YOLO model để detect traffic signs tự động.
-
-#### Bước 4: Voting System
-Implement reputation-based voting với DynamoDB transactions.
-
-#### Bước 5: Frontend Deployment
-Deploy React mobile web app lên S3 + CloudFront.
-
-#### Bước 6: Testing & Monitoring
-Test end-to-end workflow và setup CloudWatch monitoring.
+| STT | Dịch Vụ AWS | Vai Trò & Chức Năng Chi Tiết | Thông Số & Cổng |
+| :--- | :--- | :--- | :--- |
+| 1 | **AWS CloudFront** | Mạng phân phối nội dung (CDN) toàn cầu cho ứng dụng React Admin Web (`ADMIN.WEB`), nạp trang `< 100ms`. | Port 443 (HTTPS) |
+| 2 | **AWS Simple Storage Service (S3)** | Lưu trữ các tệp tĩnh Frontend (`dist/`) và các tệp ảnh biển báo người dùng tải lên (`S3 Media Bucket`). | S3 Standard Bucket |
+| 3 | **AWS Application Load Balancer (ALB)** | Cân bằng tải và định tuyến kết nối HTTPS API (`/api/*`) từ ngoài Internet vào Ocelot API Gateway. | Public Subnet `10.0.1.0/24` |
+| 4 | **AWS Elastic Container Registry (ECR)** | Kho lưu trữ các Docker Container Images bảo mật cho 8 Microservices & Python Scraper. | Private Docker Registry |
+| 5 | **AWS Amazon EC2 (Elastic Compute Cloud)** | Máy chủ ảo EC2 chạy Docker Containers cho 8 Microservices (Ocelot API Gateway + 7 Services) & EC2 Scraper Instance. | Private App Subnet `10.0.2.0/24` |
+| 6 | **AWS Cloud Map** | Dịch vụ Service Discovery DNS nội bộ mạng VPC (`*.local`) giúp Ocelot API Gateway điều hướng đến 7 Microservices. | Internal DNS `*.local` |
+| 7 | **AWS Relational Database Service (RDS)** | Cơ sở dữ liệu SQL Server 2022 lưu trữ 1,286+ biển báo GIS geography SRID 4326, user và giao dịch. | Port 1433 (Private DB Subnet `10.0.3.0/24`) |
+| 8 | **AWS EventBridge** | Đặt lịch Cronjob (`0 2 * * ? *` - 2h sáng) tự động kích hoạt Python Scraper cào dữ liệu 15 tỉnh thành. | Cron Schedule |
+| 9 | **AWS Secrets Manager & ACM** | Quản lý mã hóa bí mật (Connection Strings/JWT Keys) và cấp chứng chỉ SSL HTTPS miễn phí cho ALB. | Encrypted Secrets / TLS |
 
 ---
 
-### Kiến trúc Workshop
+#### 3. Cấu trúc Phân Mạng VPC Multi-AZ (VPC Architecture)
 
-Kiến trúc serverless với các thành phần chính:
-
-**Authentication Layer:**
-- Cognito User Pool cho login/signup
-- JWT token authorization
-- MFA optional
-
-**API Layer:**
-- API Gateway REST API
-- Lambda authorizer
-- Rate limiting
-
-**Compute Layer:**
-- Lambda functions (Python/Node.js)
-- SageMaker endpoint (YOLO)
-- Asynchronous processing với SQS
-
-**Data Layer:**
-- DynamoDB (signs, users, votes)
-- S3 (images, models)
-- ElastiCache (optional caching)
-
-**Frontend:**
-- React app trên S3
-- CloudFront CDN
-- Route 53 DNS
-
-**Monitoring:**
-- CloudWatch Logs & Metrics
-- SNS notifications
-- X-Ray tracing
-
-![TSL-SignMap Architecture](/images/5-Workshop/5.1-Workshop-overview/diagram1.png)
+- **Phạm vi hạ tầng:** AWS Region Singapore (`ap-southeast-1`) với dải mạng **AWS VPC (`10.0.0.0/16`)** triển khai trên 2 Availability Zones (**AZ - A** và **AZ - B**).
+- **Phân chia các phân vùng Subnet chi tiết theo sơ đồ:**
+  1. **Tầng Public Subnet (Public Subnet A & Public Subnet B):**
+     - Tiếp nhận lưu lượng từ **Internet Gateway (5)** vào **AWS Application Load Balancer (ALB) (6)** để cân bằng tải đến Target Group.
+     - Chứa các **NAT Gateway** tại từng AZ giúp các tài nguyên ở Private Subnet truy cập chiều ra ngoài Internet (như cào dữ liệu từ OpenStreetMap API).
+  2. **Tầng Private App Subnet (Private Subnet A & Private Subnet B):**
+     - Nằm trong cụm **Auto Scaling Group** tự động mở rộng linh hoạt spanning qua AZ-A và AZ-B.
+     - **Private Subnet A (AZ-A):** Chứa máy chủ `EC2 Ocelot API Gateway + 7 Microservices Containers` và `EC2 Scraper Instance (11)`.
+     - **Private Subnet B (AZ-B):** Chứa cụm máy chủ `EC2 Ocelot API Gateway + 7 Microservices Containers` dự phòng cao.
+     - **Tích hợp Điểm cuối Dịch vụ (VPC Endpoints):**
+       - Kết nối với **SageMaker (YOLO AI)** qua **SageMaker VPC Endpoint (9)**.
+       - Kết nối với **S3 Media Bucket** qua **S3 VPC Endpoint (10)**.
+       - Kết nối với bộ nhớ đệm **Amazon ElastiCache (Redis)**.
+  3. **Tầng Private DB Subnet (Private DB Sub A & Private DB Sub B):**
+     - **Private DB Sub A (AZ-A):** Chứa **RDS Primary - SQL** (SQL Server 2022) xử lý truy vấn dữ liệu từ EC2 Microservices và EC2 Scraper Instance.
+     - **Private DB Sub B (AZ-B):** Chứa **RDS Standby** đồng bộ dữ liệu liên tục (Multi-AZ synchronous replication) sẵn sàng tự động chuyển vùng khi có sự cố.
+  4. **Vùng Phục Hồi Thảm Họa (Secondary Disaster Recovery Region) (12):**
+     - Đồng bộ lưu trữ và sao lưu dữ liệu gồm `S3 Bucket`, `AWS Backup` và `RDS Backup`.
 
 ---
 
-### Lợi ích Serverless Architecture
+#### 4. Sơ Đồ Kiến Trúc Hệ Thống (System Architecture Diagram)
 
-| Lợi ích | Mô tả |
-|---------|-------|
-| **Auto-scaling** | Tự động scale theo traffic, không cần provision |
-| **Cost-effective** | Pay-per-use, không có idle cost |
-| **High availability** | Multi-AZ deployment tự động |
-| **Low maintenance** | AWS quản lý infrastructure |
-| **Fast deployment** | CI/CD pipeline đơn giản |
+![overview](/images/5-Workshop/5.1-Workshop-overview/diagram1.png)
 
----
+```mermaid
+graph TB
+    subgraph AWSCloud["AWS Cloud"]
+        subgraph Region["AWS Region: Singapore (ap-southeast-1)"]
+            
+            subgraph EdgeLayer["Edge & Security Services"]
+                CF["AWS CloudFront<br/>(React Admin Web CDN)"]
+                S3Web["AWS S3 Bucket<br/>(Frontend dist/ Static Assets)"]
+                ACM["AWS Certificate Manager (ACM)<br/>(SSL/TLS HTTPS)"]
+                SECRETS["AWS Secrets Manager<br/>(Connection Strings & JWT Keys)"]
+                EB["AWS EventBridge<br/>(Cron: 0 2 * * ? *)"]
+            end
 
-### Điều kiện tiên quyết
+            subgraph VPC["AWS VPC (10.0.0.0/16)"]
+                
+                subgraph PublicSubnet["Public Subnet (10.0.1.0/24)"]
+                    ALB["AWS Application Load Balancer (ALB)<br/>(HTTPS API Routing /api/*)"]
+                end
 
-- Tài khoản AWS có quyền tạo Lambda, DynamoDB, S3, API Gateway
-- AWS CLI installed và configured
-- Node.js 18+ và Python 3.9+
-- Hiểu biết cơ bản về REST API, serverless
-- (Optional) Mobile development experience
+                subgraph PrivateAppSubnet["Private App Subnet (10.0.2.0/24)"]
+                    subgraph EC2Cluster["AWS EC2 Instances"]
+                        GW["ApiGateway Container<br/>(Port 5008)"]
+                        
+                        US["UserService (5001)"]
+                        TS["TrafficSignService (5002)"]
+                        CS["ContributionService (5003)"]
+                        FS["FeedbackService (5004)"]
+                        PS["PaymentService (5005)"]
+                        RS["RewardService (5006)"]
+                        NS["NotificationService (5007)"]
 
----
+                        SCRAPER["EC2 Scraper Instance<br/>(scrape_signs.py)"]
+                    end
+                    
+                    CM["AWS Cloud Map<br/>(Service Discovery DNS *.local)"]
+                    SM["SageMaker Endpoint<br/>(YOLO AI Model)"]
+                end
 
-### Nội dung Workshop
+                subgraph PrivateDBSubnet["Private DB Subnet (10.0.3.0/24)"]
+                    RDS[("AWS RDS for SQL Server 2022<br/>(Port 1433 \| 1,286+ Signs GIS SRID 4326)")]
+                    CACHE["Amazon ElastiCache<br/>(Redis Cache)"]
+                end
 
-1. **[Chuẩn bị](../5.2-prerequisite/)** - Setup AWS environment
-2. **[Cơ sở dữ liệu](../5.3-infrastructure-database/)** - DynamoDB tables & S3
-3. **[Backend API](../5.4-backend-apigateway/)** - Lambda + API Gateway
-4. **[Frontend](../5.5-frontend-deployment/)** - React app deployment
-5. **[Testing](../5.6-testing-cleanup/)** - E2E test & cleanup
+            end
 
----
+            S3Media["AWS S3 Media Bucket<br/>(Uploaded Sign Images)"]
+            ECR["AWS Elastic Container Registry (ECR)<br/>(Docker Container Images)"]
+        end
+    end
 
-### So sánh Traditional vs Serverless
+    CLIENT_WEB["Client Admin Web"] -->|HTTPS| CF
+    CF -->|Fetch static site| S3Web
+    CLIENT_APP["Client Mobile / Web"] -->|HTTPS /api/*| ALB
+    ACM -.->|HTTPS Cert| ALB
 
-| Tiêu chí | Traditional | Serverless (TSL-SignMap) |
-|----------|-------------|--------------------------|
-| **Infrastructure** | EC2, Load Balancer, Auto Scaling | Lambda, API Gateway |
-| **Database** | RDS (MySQL/Postgres) | DynamoDB |
-| **Scaling** | Manual configuration | Automatic |
-| **Cost** | $50-200/month (always on) | $10-50/month (pay per use) |
-| **Maintenance** | High (patching, updates) | Low (AWS managed) |
-| **Deployment** | Complex (Docker, K8s) | Simple (SAM, Serverless Framework) |
+    ALB -->|Forward HTTPS| GW
 
----
+    CM -.->|DNS Routing *.local| GW
+    GW -->|Port 5001| US
+    GW -->|Port 5002| TS
+    GW -->|Port 5003| CS
+    GW -->|Port 5004| FS
+    GW -->|Port 5005| PS
+    GW -->|Port 5006| RS
+    GW -->|Port 5007| NS
+    GW -->|SageMaker VPCE| SM
 
-### Tech Stack
+    US -->|Port 1433| RDS
+    TS -->|Port 1433| RDS
+    CS -->|Port 1433| RDS
+    FS -->|Port 1433| RDS
+    PS -->|Port 1433| RDS
+    RS -->|Port 1433| RDS
+    NS -->|Port 1433| RDS
 
-**Backend:**
-- AWS Lambda (Python 3.9)
-- Amazon API Gateway
-- Amazon DynamoDB
-- Amazon S3
-- Amazon SageMaker
-- Amazon Cognito
+    CS -->|Upload Images| S3Media
 
-**Frontend:**
-- React 18+
-- AWS Amplify
-- Mapbox/OpenStreetMap
-- Material-UI
+    EB -->|Trigger 2h sáng| SCRAPER
+    SCRAPER -->|Cập nhật CSDL| RDS
+    SCRAPER -->|Cache Data| CACHE
 
-**DevOps:**
-- AWS SAM / Serverless Framework
-- GitHub Actions
-- CloudWatch
-
----
-
-### Ước tính chi phí (5,000 users/month)
-
-| Service | Usage | Cost |
-|---------|-------|------|
-| API Gateway | 5M requests | $17.50 |
-| Lambda | 10M invocations | $15 |
-| DynamoDB | 5M reads, 1M writes | $7.50 |
-| S3 | 100K images, 50GB | $1.50 |
-| SageMaker | Endpoint 24/7 | $35 |
-| Cognito | 5K MAU | Free |
-| CloudFront | 50GB transfer | $4 |
-| **Total** | | **~$80.50/month** |
-
-**Tiết kiệm:**
-- Sử dụng Lambda + SQS thay vì SageMaker endpoint 24/7: -$30
-- DynamoDB On-Demand thay vì Provisioned: Flexible cost
-- CloudFront caching: Giảm Lambda invocations
-
----
-
-### Thời gian hoàn thành
-
-- **Tổng thời gian:** 90-120 phút
-- Bước 1-2 (Infrastructure): 30 phút
-- Bước 3 (Backend API): 30 phút
-- Bước 4 (Frontend): 20 phút
-- Bước 5 (Testing): 20 phút
-
----
-
-### Kết quả mong đợi
-
-Sau workshop, bạn sẽ có:
-- ✅ Hệ thống TSL-SignMap hoàn chỉnh chạy trên AWS
-- ✅ Hiểu cách xây dựng serverless crowdsourcing app
-- ✅ Kinh nghiệm với Lambda, DynamoDB, API Gateway
-- ✅ Mobile backend scalable có thể mở rộng
-- ✅ CI/CD pipeline để deploy updates
+    ECR -.->|Pull Images| EC2Cluster
+    SECRETS -.->|Inject Secrets| EC2Cluster
+    SECRETS -.->|Inject Secrets| RDS
+```
 

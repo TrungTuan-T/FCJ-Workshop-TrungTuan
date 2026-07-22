@@ -1,235 +1,37 @@
 ---
-title: "Backend & API Gateway Deployment"
-date: 2026-07-10
+title: "Configure AWS CloudFront and S3 Static Web"
+date: 2026-07-22
 weight: 4
 chapter: false
 ---
 
-### Overview
+#### 1. Admin Web Frontend Distribution Layer Overview (CloudFront & S3 Static Web)
 
-Deploy 7 Lambda functions and REST API Gateway with Cognito Authorizer for TSL-SignMap.
+In this section, you will deploy the global distribution infrastructure for the React Admin Web (`ADMIN.WEB`) frontend of the **TSL-SignMap** system at the **Global Edge Layer**, adhering to AWS security and performance best practices:
 
-**Architecture:**
-```
-Mobile App → API Gateway → Cognito Authorizer → Lambda → DynamoDB/S3/SQS
-```
+- **AWS Simple Storage Service (S3 Static Web):** Stores compiled frontend static assets (`dist/`) including HTML, CSS, JavaScript, and user interface media.
+- **AWS CloudFront (CDN):** Global Content Delivery Network caching and delivering static assets from the S3 Static Web Bucket to end users with low latency under `< 100ms`.
+- **AWS Certificate Manager (ACM):** Issues and manages SSL/TLS security certificates enabling HTTPS connection encryption (Port 443).
+- **AWS WAF (Web Application Firewall):** Edge-located web application firewall protecting the site against web exploits (DDoS, SQL Injection, Cross-Site Scripting).
 
----
-
-### Lambda Functions
-
-| Function | Method | Endpoint | Purpose |
-|----------|--------|----------|---------|
-| sign-submit | POST | /signs | Submit new traffic sign |
-| sign-query | GET | /signs/nearby | Query signs by location |
-| sign-vote | POST | /votes | Vote on sign submission |
-| sign-approve | PUT | /signs/{id}/approve | Admin approve/reject |
-| user-profile | GET | /users/me | Get user profile & coins |
-| image-upload-url | GET | /signs/upload-url | Generate S3 presigned URL |
-| ai-detection | SQS | - | Process image with YOLO |
+- **Static Web Endpoint URL (AWS S3 Hosting):** [http://tsl-signmap-production-static-web-ckroy7.s3-website-ap-southeast-1.amazonaws.com/](http://tsl-signmap-production-static-web-ckroy7.s3-website-ap-southeast-1.amazonaws.com/)
 
 ---
 
-### Step 1: Create IAM Role
+#### 2. Detailed Edge Layer Components
 
-```bash
-cat > lambda-trust-policy.json << 'EOF'
-{
-  "Version": "2012-10-17",
-  "Statement": [{
-    "Effect": "Allow",
-    "Principal": { "Service": "lambda.amazonaws.com" },
-    "Action": "sts:AssumeRole"
-  }]
-}
-EOF
-
-aws iam create-role \
-  --role-name tsl-signmap-lambda-role \
-  --assume-role-policy-document file://lambda-trust-policy.json
-
-aws iam attach-role-policy \
-  --role-name tsl-signmap-lambda-role \
-  --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-
-cat > lambda-permissions.json << 'EOF'
-{
-  "Version": "2012-10-17",
-  "Statement": [{
-    "Effect": "Allow",
-    "Action": [
-      "dynamodb:*",
-      "s3:*",
-      "sqs:*",
-      "sns:*",
-      "sagemaker:InvokeEndpoint",
-      "geo:*"
-    ],
-    "Resource": "*"
-  }]
-}
-EOF
-
-aws iam put-role-policy \
-  --role-name tsl-signmap-lambda-role \
-  --policy-name TSLPermissions \
-  --policy-document file://lambda-permissions.json
-```
+| AWS Service | Role & Function | Configuration & Protocols |
+| :--- | :--- | :--- |
+| **AWS S3 Static Web** | Stores React Admin Web compiled static assets (`dist/`) | S3 Website Hosting Bucket |
+| **AWS CloudFront** | Global CDN delivering static content with page load `< 100ms` | Price Class 100 / HTTPS (Port 443) |
+| **AWS Certificate Manager (ACM)** | Provides SSL/TLS certificates for HTTPS encryption | TLS Certificate (Region us-east-1) |
+| **AWS WAF** | Filters web traffic blocking malicious exploits at Global Edge | Managed Rule Sets & Rate Limiting |
 
 ---
 
-### Step 2: Deploy Lambda Functions
+#### 3. Hands-on Lab Exercises
 
-```bash
-cd backend
-
-# Deploy with SAM
-sam build
-sam deploy \
-  --stack-name tsl-signmap-backend \
-  --parameter-overrides \
-    SignsTable=tsl-signmap-TrafficSigns-dev \
-    UsersTable=tsl-signmap-Users-dev \
-    VotesTable=tsl-signmap-Votes-dev \
-    ImagesBucket=tsl-signmap-images-$(aws sts get-caller-identity --query Account --output text) \
-  --capabilities CAPABILITY_IAM
-```
-
-**template.yaml (snippet):**
-```yaml
-Resources:
-  SignSubmitFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      CodeUri: functions/sign-submit/
-      Handler: index.handler
-      Runtime: nodejs18.x
-      Timeout: 30
-      Environment:
-        Variables:
-          SIGNS_TABLE: !Ref SignsTable
-          USERS_TABLE: !Ref UsersTable
-          IMAGES_BUCKET: !Ref ImagesBucket
-          QUEUE_URL: !GetAtt ImageProcessingQueue.QueueUrl
-      Events:
-        Api:
-          Type: Api
-          Properties:
-            Path: /signs
-            Method: POST
-            Auth:
-              Authorizer: CognitoAuthorizer
-```
-
----
-
-### Step 3: Deploy API Gateway
-
-```bash
-API_ID=$(aws apigateway create-rest-api \
-  --name tsl-signmap-api \
-  --endpoint-configuration types=REGIONAL \
-  --query 'id' \
-  --output text)
-
-AUTHORIZER_ID=$(aws apigateway create-authorizer \
-  --rest-api-id $API_ID \
-  --name CognitoAuth \
-  --type COGNITO_USER_POOLS \
-  --provider-arns arn:aws:cognito-idp:us-east-1:$(aws sts get-caller-identity --query Account --output text):userpool/$USER_POOL_ID \
-  --identity-source method.request.header.Authorization \
-  --query 'id' \
-  --output text)
-
-aws apigateway create-deployment \
-  --rest-api-id $API_ID \
-  --stage-name prod
-
-echo "API: https://$API_ID.execute-api.us-east-1.amazonaws.com/prod"
-```
-
----
-
-### API Endpoints
-
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| POST | /signs | Yes | Submit new sign with image |
-| GET | /signs/nearby?lat=10.76&lng=106.66&radius=1 | Yes | Get signs within radius (km) |
-| GET | /signs/{signId} | Yes | Get sign details |
-| POST | /votes | Yes | Vote (upvote/downvote) on sign |
-| GET | /users/me | Yes | Get profile, coins, reputation |
-| GET | /signs/upload-url?filename=image.jpg | Yes | Get S3 presigned URL |
-| PUT | /signs/{signId}/approve | Admin | Approve/reject sign |
-
----
-
-### Testing
-
-```bash
-# Login to get token
-TOKEN=$(aws cognito-idp initiate-auth \
-  --client-id $CLIENT_ID \
-  --auth-flow USER_PASSWORD_AUTH \
-  --auth-parameters USERNAME=admin@tsl-signmap.com,PASSWORD=YourPassword \
-  --query 'AuthenticationResult.IdToken' \
-  --output text)
-
-# Submit sign
-curl -X POST https://$API_ID.execute-api.us-east-1.amazonaws.com/prod/signs \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "location": {"lat": 10.762622, "lng": 106.660172},
-    "signType": "stop",
-    "imageKey": "signs/user123/image.jpg"
-  }'
-
-# Query nearby signs
-curl "https://$API_ID.execute-api.us-east-1.amazonaws.com/prod/signs/nearby?lat=10.76&lng=106.66&radius=2" \
-  -H "Authorization: Bearer $TOKEN"
-
-# Vote
-curl -X POST https://$API_ID.execute-api.us-east-1.amazonaws.com/prod/votes \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"signId": "sign_12345", "voteType": "upvote"}'
-```
-
----
-
-### Monitoring
-
-```bash
-# CloudWatch Logs
-aws logs tail /aws/lambda/sign-submit --follow
-
-# API metrics
-aws cloudwatch get-metric-statistics \
-  --namespace AWS/ApiGateway \
-  --metric-name Count \
-  --dimensions Name=ApiName,Value=tsl-signmap-api \
-  --start-time 2026-01-01T00:00:00Z \
-  --end-time 2026-01-01T23:59:59Z \
-  --period 3600 \
-  --statistics Sum
-```
-
----
-
-### Cost Estimate
-
-| Service | Usage | Cost/month |
-|---------|-------|------------|
-| Lambda | 1M invocations, 512MB, 2s | $10 |
-| API Gateway | 1M requests | $3.50 |
-| CloudWatch | 5GB logs | $2.50 |
-| **Total** | | **$16/month** |
-
----
-
-### Next: Frontend
-
-```bash
-cd ../5.5-frontend-deployment/
-```
+- [5.4.1 Prepare Frontend Static Assets & Create S3 Static Web Bucket](5.4.1-prepare/)
+- [5.4.2 Configure AWS CloudFront CDN & Origin Access Control (OAC)](5.4.2-create-interface-enpoint/)
+- [5.4.3 Integrate SSL HTTPS Certificate with AWS Certificate Manager (ACM)](5.4.3-test-endpoint/)
+- [5.4.4 Configure AWS WAF Firewall & Edge Monitoring](5.4.4-dns-simulation/)

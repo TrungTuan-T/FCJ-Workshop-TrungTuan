@@ -7,234 +7,114 @@ pre: " <b> 2. </b> "
 ---
 
 # TSL-SignMap
-
-## Hệ thống quản lý vị trí biển báo giao thông dựa trên cộng đồng và AI
+## Hệ thống quản lý vị trí biển báo giao thông dựa trên cộng đồng, tích hợp AI
 
 ### 1. Tóm tắt điều hành
+TSL-SignMap là giải pháp công nghệ tiên tiến nhằm xây dựng và duy trì cơ sở dữ liệu biển báo giao thông theo thời gian thực tại Việt Nam. Hệ thống kết hợp ứng dụng di động thân thiện với người dùng, bản đồ mã nguồn mở OpenStreetMap, trí tuệ nhân tạo (mô hình AI/YOLO phát hiện biển báo) và cơ chế đóng góp cộng đồng (Crowdsourcing). Với nền kinh tế tokenized (TSL Coin) cùng quy trình xác minh và bỏ phiếu đa tầng dựa trên uy tín, TSL-SignMap đảm bảo dữ liệu minh bạch, chuẩn xác, hỗ trợ người lái xe điều hướng an toàn và tối ưu hóa công tác quản lý giao thông cho các cơ quan chức năng.
 
-TSL-SignMap là hệ thống quản lý biển báo giao thông kết hợp crowdsourcing, AI detection (YOLO), và bản đồ thời gian thực. Hệ thống sử dụng kiến trúc serverless trên AWS, tích hợp mobile app và OpenStreetMap để tạo cơ sở dữ liệu biển báo chính xác, cập nhật liên tục.
+---
 
-### 2. Tuyên bố vấn đề
+### 2. Tuyên bố vấn đề & Giải pháp đề xuất
 
-**Vấn đề hiện tại**
+#### Vấn đề hiện tại
+- **Dữ liệu thiếu cập nhật**: Biển báo giao thông tại Việt Nam liên tục thay đổi (thêm mới, di dời, bị che khuất hoặc dỡ bỏ), nhưng công tác cập nhật hiện nay chủ yếu dựa vào khảo sát thủ công tốn kém thời gian và chi phí.
+- **Hệ thống bản đồ hiện tại chưa tối ưu**: Các ứng dụng bản đồ phổ biến thường thiếu thông tin chi tiết hoặc chưa kịp thời cập nhật các biển báo quy định đặc thù tại từng tuyến đường.
+- **Rủi ro giao thông**: Việc thiếu thông tin biển báo chính xác dẫn đến nguy cơ vi phạm quy định giao thông ngoài ý muốn hoặc gây mất an toàn cho người tham gia giao thông.
 
-| Vấn đề | Mô tả |
-|--------|-------|
-| Dữ liệu biển báo lỗi thời | Biển báo thay đổi nhưng bản đồ không cập nhật kịp thời |
-| Chi phí khảo sát cao | Khảo sát thủ công tốn thời gian và nhân lực |
-| Thiếu tính cộng đồng | Người dân không có kênh đóng góp thông tin |
-| Độ chính xác thấp | Xác minh biển báo thủ công dễ sai sót |
+#### Giải pháp đề xuất (TSL-SignMap)
+TSL-SignMap giải quyết các thách thức trên bằng mô hình hợp tác thông minh:
+- **Ứng dụng di động thời gian thực**: Tích hợp OpenStreetMap hiển thị trực quan các vị trí biển báo giao thông cập nhật tức thì.
+- **Đóng góp cộng đồng (Crowdsourcing)**: Cho phép người dân và người lái xe gửi báo cáo về biển báo mới, biển báo thiếu hoặc thông tin sai lệch.
+- **Phát hiện & Phân loại biển báo bằng AI**: Mô hình thị giác máy tính tiên tiến (YOLO) tự động phân tích hình ảnh do người dùng tải lên để phát hiện và phân loại biển báo, giảm thiểu thao tác thủ công.
+- **Thuật toán bỏ phiếu tính trọng số (Weighted Consensus)**: Đánh giá độ tin cậy của đóng góp dựa trên số phiếu tán thành/phản đối được tính trọng số theo độ uy tín, khoảng cách địa lý (GPS) và chuyên môn người dùng.
+- **Hệ sinh thái TSL Coin**: Tạo động lực kinh tế khuyến khích sự tham gia tích cực thông qua cơ chế thưởng/phạt TSL Coin minh bạch.
 
-**Giải pháp TSL-SignMap**
+---
 
-| Tính năng | Công nghệ |
-|-----------|-----------|
-| Crowdsourcing | Mobile app cho phép người dùng báo cáo biển báo |
-| AI Detection | YOLO model tự động phát hiện và phân loại biển báo |
-| Voting System | Cộng đồng xác minh tính chính xác của đóng góp |
-| Real-time Map | Tích hợp OpenStreetMap hiển thị biển báo cập nhật |
-| Reward System | TSL Coin khuyến khích người dùng tham gia |
+### 3. Yêu cầu chức năng
 
-**Lợi ích**
+#### a. Đăng ký & Xác thực Người dùng
+- Cho phép người dùng đăng ký/đăng nhập tài khoản an toàn.
+- Cấp ngay 20 TSL Coin khởi tạo cho tài khoản mới.
+- Quản lý điểm uy tín (reputation score) và theo dõi số dư TSL Coin của người dùng.
 
-| Lợi ích | Chi tiết |
-|---------|----------|
-| Dữ liệu cập nhật | Biển báo được cập nhật liên tục từ cộng đồng |
-| Chi phí thấp | Serverless giảm chi phí infrastructure |
-| Độ chính xác cao | AI + voting system đảm bảo chất lượng dữ liệu |
-| Khả năng mở rộng | Auto-scaling xử lý traffic tăng đột biến |
-| Bảo mật | Multi-layer security bảo vệ dữ liệu người dùng |
+#### b. Hiển thị & Điều hướng Biển báo Giao thông
+- Tích hợp OpenStreetMap để hiển thị các loại biển báo giao thông (biển cấm, biển cảnh báo, biển hiệu lệnh, biển chỉ dẫn) trên bản đồ tương tác thời gian thực.
 
+#### c. Tìm kiếm & Lọc nâng cao
+- Hỗ trợ tìm kiếm biển báo theo loại hoặc bán kính vị trí xung quanh.
+- Bộ lọc nâng cao chi phí 1 TSL Coin/lần sử dụng.
 
+#### d. Đóng góp của Người dùng
+- Gửi báo cáo đóng góp (biển báo mới, bị thiếu hoặc không chính xác) kèm vị trí GPS và chi tiết mô tả/hình ảnh.
+- Chi phí cho mỗi lần gửi đóng góp: 5 TSL Coin.
+- Hình ảnh upload được mô hình AI (YOLO) tự động quét để kiểm tra tính hợp lệ và phân loại sơ bộ.
 
+#### e. Cơ chế Bỏ phiếu & Xác minh Cộng đồng
+- Người dùng đủ điều kiện (có hoạt động tối thiểu) tham gia bỏ phiếu (tán thành/phản đối) cho các đóng góp.
+- Thưởng 1 TSL Coin cho mỗi phiếu bầu phù hợp với kết quả cuối cùng (tối đa 5 TSL Coin/ngày).
+- **Quy định duyệt tự động**:
+  - Đạt >70% đồng thuận (sau 5+ phiếu hoặc 7 ngày): Tự động phê duyệt và tích hợp vào bản đồ.
+  - Đạt <30% đồng thuận: Tự động từ chối.
+  - Đạt 30% - 70%: Gắn cờ chuyển Quản trị viên review.
 
-### 3. Kiến trúc giải pháp
+#### f. Bảng điều khiển Quản trị viên (Admin Dashboard)
+- Giao diện Web Dashboard dành cho Quản trị viên xem xét các đóng góp bị gắn cờ, duyệt/từ chối hoặc ghi đè kết quả bỏ phiếu khi cần.
+- Điều chỉnh phần thưởng/hình phạt Coin và điểm uy tín để duy trì sự cân bằng của hệ sinh thái.
 
-TSL-SignMap sử dụng kiến trúc serverless, event-driven trên AWS, kết hợp mobile app và AI model để xây dựng hệ thống quản lý biển báo thời gian thực.
+#### g. Chu trình Kinh tế TSL Coin
+- **Thưởng**: Thưởng 10+ TSL Coin khi đóng góp được duyệt; 1 TSL Coin cho phiếu bầu phù hợp.
+- **Tiêu dùng**: Chi tiêu Coin cho quyền truy cập bản đồ (2 TSL Coin/ngày), gửi đóng góp (5 TSL Coin), bộ lọc nâng cao (1 TSL Coin).
+- **Nạp Coin**: Hỗ trợ người dùng nạp thêm Coin bằng tiền mặt (ví dụ: $1 cho 10 TSL Coin).
 
-![TSL-SignMap Architecture](/images/2-Proposal/aws.jpg)
+---
 
-**Dịch vụ AWS sử dụng**
+### 4. Kiến trúc Hệ thống & Nền tảng Công nghệ
 
-| Dịch vụ | Vai trò |
-|---------|---------|
-| Amazon Cognito | Xác thực người dùng, quản lý JWT token |
-| Amazon API Gateway | REST API endpoint cho mobile app |
-| AWS Lambda | Xử lý logic backend, AI inference |
-| Amazon DynamoDB | Lưu trữ thông tin biển báo, user data |
-| Amazon S3 | Lưu ảnh biển báo, YOLO model |
-| Amazon SageMaker | Training và hosting YOLO model |
-| Amazon Location Service | Xử lý geospatial data, tích hợp bản đồ |
-| Amazon SQS | Queue xử lý ảnh bất đồng bộ |
-| Amazon SNS | Thông báo cho người dùng |
-| Amazon CloudWatch | Monitoring và logging |
-| AWS Amplify | Deploy mobile app backend |
+#### Kiến trúc tổng quan
+- **Mobile Client**: Xây dựng ứng dụng di động (Flutter / React Native) tích hợp bản đồ OpenStreetMap (MapLibre / Leaflet).
+- **AI Service**: Pipeline xử lý hình ảnh dựa trên mô hình YOLO (You Only Look Once) được huấn luyện trên tập dữ liệu biển báo giao thông Việt Nam.
+- **Backend Services**: RESTful API & WebSocket Server (Node.js / Python FastAPI) đảm bảo đồng bộ dữ liệu thời gian thực.
+- **Cơ sở dữ liệu**: PostgreSQL + PostGIS (lưu trữ dữ liệu không gian biển báo), Redis (lưu trữ bộ nhớ tạm & leaderboard), Amazon S3 / Cloud Storage (lưu ảnh đóng góp).
+- **Web Dashboard**: Giao diện React.js / Next.js dành cho Quản trị viên.
 
-**Thiết kế thành phần**
-
-| Component | Chi tiết kỹ thuật |
-|-----------|-------------------|
-| Mobile App | React Native/Flutter kết nối API Gateway |
-| Authentication | Cognito User Pool với MFA |
-| API Layer | API Gateway + Lambda authorizer |
-| AI Detection | Lambda invoke SageMaker endpoint (YOLO) |
-| Database | DynamoDB: SignID (PK), Location (GSI) |
-| Image Storage | S3 với presigned URL upload |
-| Voting System | Lambda + DynamoDB transactions |
-| Coin System | DynamoDB table tracks user balance |
-| Map Integration | Location Service + OpenStreetMap API |
-| Notifications | SNS push notifications via mobile app |
-
-
-
-
-### 4. Triển khai kỹ thuật
-
-**Yêu cầu kỹ thuật**
-
-| Layer | AWS Services |
-|-------|--------------|
-| Mobile App | AWS Amplify, React Native/Flutter |
-| Authentication | Amazon Cognito User Pool |
-| API Gateway | Amazon API Gateway REST API |
-| Compute | AWS Lambda (Python/Node.js) |
-| AI/ML | Amazon SageMaker (YOLO model) |
-| Database | Amazon DynamoDB (On-Demand) |
-| Storage | Amazon S3 (images, models) |
-| Geospatial | Amazon Location Service |
-| Queue | Amazon SQS (image processing) |
-| Notifications | Amazon SNS (push notifications) |
-| Monitoring | Amazon CloudWatch |
-| Security | AWS KMS, IAM Roles |
-
-**Data Model (DynamoDB)**
-
-```
-Table: TrafficSigns
-- SignID (PK)
-- Location (lat, long) - GSI
-- SignType (warning, regulatory, information)
-- ImageURL (S3 path)
-- Status (pending, approved, rejected)
-- SubmittedBy (UserID)
-- Votes (upvotes, downvotes)
-- CreatedAt, UpdatedAt
-
-Table: Users
-- UserID (PK)
-- Email
-- CoinBalance
-- ReputationScore
-- SubmissionsCount
-- VotesCount
-
-Table: Votes
-- VoteID (PK)
-- SignID-UserID (GSI)
-- VoteType (upvote, downvote)
-- Weight (based on reputation)
-- Timestamp
-```
-
-
-
+---
 
 ### 5. Lộ trình & Mốc triển khai
 
-| Giai đoạn | Công việc | Thời gian |
-|-----------|-----------|-----------|
-| **Phase 1: Infrastructure** | Setup AWS account, VPC, IAM roles | 1 week |
-| | Deploy Cognito User Pool | |
-| | Setup DynamoDB tables | |
-| | Configure S3 buckets | |
-| **Phase 2: Backend API** | Create Lambda functions | 2 weeks |
-| | Setup API Gateway endpoints | |
-| | Implement authentication flow | |
-| | Deploy SQS queues | |
-| **Phase 3: AI Integration** | Train YOLO model on traffic signs | 2 weeks |
-| | Deploy model to SageMaker | |
-| | Create Lambda for AI inference | |
-| | Test detection accuracy | |
-| **Phase 4: Mobile App** | Develop React Native app | 3 weeks |
-| | Integrate with API Gateway | |
-| | Implement map view (Location Service) | |
-| | Add camera and image upload | |
-| **Phase 5: Voting & Coins** | Implement voting system | 1 week |
-| | Create coin transaction logic | |
-| | Add reputation calculation | |
-| **Phase 6: Testing** | Integration testing | 1 week |
-| | Load testing with traffic simulation | |
-| | Security audit | |
-| **Phase 7: Launch** | Deploy to production | 1 week |
-| | Monitor with CloudWatch | |
-| | Gather user feedback | |
+- **Tháng 1: Thu thập dữ liệu & Huấn luyện mô hình AI**
+  - Thu thập tập dữ liệu hình ảnh biển báo giao thông tại Việt Nam.
+  - Huấn luyện và đánh giá mô hình YOLO cho nhiệm vụ phát hiện và phân loại biển báo.
+  - Thiết kế cơ sở dữ liệu Spatial (PostGIS) và thiết kế API.
 
-### 6. Ước tính ngân sách
+- **Tháng 2: Phát triển Core Platform & Hệ sinh thái Coin**
+  - Phát triển ứng dụng di động tích hợp OpenStreetMap.
+  - Xây dựng thuật toán bỏ phiếu tính trọng số và hệ thống quản lý TSL Coin.
+  - Tích hợp AI Pipeline xử lý ảnh đóng góp tự động.
 
-**Chi phí hạ tầng AWS (ước tính/tháng)**
+- **Tháng 3: Triển khai Dashboard Quản trị & Kiểm thử**
+  - Phát triển Web Dashboard cho Quản trị viên.
+  - Kiểm thử toàn diện (End-to-End Testing), tối ưu hóa hiệu năng nhận diện AI và tính ổn định đồng bộ bản đồ.
 
-| Dịch vụ AWS | Chi phí ước tính | Ghi chú |
-|-------------|------------------|---------|
-| Amazon Cognito | $0–$5 | Miễn phí 50k MAU đầu tiên |
-| Amazon API Gateway | $3–$10 | ~1M requests/tháng |
-| AWS Lambda | $5–$20 | Compute + AI inference |
-| Amazon DynamoDB | $10–$30 | On-Demand mode |
-| Amazon S3 | $5–$15 | Image storage + model |
-| Amazon SageMaker | $20–$50 | YOLO endpoint hosting |
-| Amazon Location Service | $5–$15 | Geospatial queries |
-| Amazon SQS | $0–$3 | Queue processing |
-| Amazon SNS | $0–$5 | Push notifications |
-| Amazon CloudWatch | $3–$10 | Logs + metrics |
-| **Tổng** | **$51–$163** | Tùy số người dùng và traffic |
+- **Tháng 4 trở đi: Thử nghiệm thực địa & Vận hành**
+  - Triển khai thử nghiệm cộng đồng tại khu vực trọng điểm (TP. Hồ Chí Minh / Hà Nội).
+  - Thu thập phản hồi, tinh chỉnh thuật toán và mở rộng quy mô.
 
-**Mô hình kinh tế TSL Coin**
+---
 
-| Hành động | Coin |
-|-----------|------|
-| Đăng ký mới | +20 Coin |
-| Gửi đóng góp biển báo | -5 Coin |
-| Đóng góp được duyệt | +10 Coin |
-| Vote chính xác | +1 Coin (max 5/ngày) |
-| Xem bản đồ | -2 Coin/ngày |
-| Nạp tiền | $1 = 10 Coin |
+### 6. Đánh giá rủi ro & Chiến lược giảm thiểu
 
-### 7. Đánh giá rủi ro
+| Rủi ro | Mức độ ảnh hưởng | Xác suất | Chiến lược giảm thiểu |
+| :--- | :--- | :--- | :--- |
+| Báo cáo rác / Đóng góp sai sự thật | Cao | Trung bình | Yêu cầu 5 TSL Coin phí gửi, AI nhận diện ảnh rác, tính trọng số phiếu theo GPS và độ uy tín. |
+| Gian lận TSL Coin (Sybil Attack) | Trung bình | Trung bình | Xác thực tài khoản, giới hạn thưởng phiếu bầu (tối đa 5 Coin/ngày), trừ điểm uy tín nếu gian lận. |
+| AI phân loại sai loại biển báo | Trung bình | Thấp | Kết hợp AI làm bước phân loại sơ bộ và cộng đồng/Admin đưa ra quyết định phê duyệt cuối cùng. |
+| Mất kết nối mạng trên thiết bị di động | Thấp | Trung bình | Hỗ trợ lưu trữ báo cáo ngoại tuyến (Offline Storage) và tự động đồng bộ khi có kết nối mạng. |
 
-| Loại rủi ro | Mô tả | Mức độ | Biện pháp giảm thiểu |
-|-------------|-------|--------|---------------------|
-| **AI Accuracy** | YOLO model nhận diện sai biển báo | Cao | Training với dataset lớn, voting system xác minh |
-| **Spam/Abuse** | Người dùng spam đóng góp giả | Trung bình | Rate limiting, reputation system, coin cost |
-| **Data Privacy** | Ảnh chụp có thể chứa thông tin cá nhân | Cao | Xóa EXIF metadata, blur faces/license plates |
-| **Geolocation Accuracy** | GPS không chính xác ở vùng tín hiệu yếu | Trung bình | Cho phép manual adjustment, crowd verification |
-| **Cost Overrun** | SageMaker endpoint có thể tốn kém | Trung bình | Use Lambda cold start, batch processing |
-| **Security** | API exposure, unauthorized access | Cao | Cognito authorizer, IAM roles, encryption |
-| **Voting Manipulation** | Người dùng tạo nhiều account để vote | Trung bình | Require minimum activity, weight by reputation |
-| **Scalability** | Traffic spike khi launch | Thấp | Serverless auto-scaling, DynamoDB on-demand |  
-  
-### 8. Kết quả kỳ vọng
+---
 
-**Mục tiêu dự án**
+### 7. Kết quả kỳ vọng
 
-| Mục tiêu | Kết quả |
-|----------|---------|
-| Dữ liệu biển báo | Database 10,000+ biển báo với độ chính xác >90% |
-| Người dùng | 1,000+ active users trong 3 tháng đầu |
-| AI Detection | YOLO model đạt 85%+ accuracy |
-| Response Time | API latency <500ms cho 95% requests |
-| Uptime | 99.5%+ availability |
-| Cost | Chi phí duy trì <$200/tháng với 5k users |
-
-**Giá trị mang lại**
-
-- **Cho người lái xe**: Bản đồ biển báo cập nhật giúp lái xe an toàn hơn
-- **Cho cộng đồng**: Kênh đóng góp cải thiện hạ tầng giao thông
-- **Cho cơ quan quản lý**: Dữ liệu real-time về tình trạng biển báo
-- **Về kỹ thuật**: Kinh nghiệm xây dựng hệ thống serverless + AI + mobile
-
-**Khả năng mở rộng**
-
-- Tích hợp với navigation apps (Google Maps, Waze)
-- Mở rộng sang các loại infrastructure khác (streetlights, road damage)
-- API cho third-party developers
-- Dashboard analytics cho traffic authorities
-- Integration với autonomous vehicle systems
+- **Cơ sở dữ liệu biển báo thời gian thực**: Cung cấp nguồn dữ liệu biển báo giao thông chính xác, liên tục được cập nhật cho người tham gia giao thông.
+- **Tiết kiệm chi phí vận hành**: Giảm tới 80% nỗ lực và chi phí khảo sát biển báo thủ công cho các cơ sở quản lý.
+- **Thúc đẩy ý thức cộng đồng**: Xây dựng cộng đồng giao thông văn minh, tương trợ lẫn nhau nhờ cơ chế thưởng TSL Coin hấp dẫn và minh bạch.
