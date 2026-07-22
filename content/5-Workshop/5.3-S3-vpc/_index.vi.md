@@ -3,6 +3,7 @@ title: "Thiết lập cụm Microservices và Cơ sở dữ liệu RDS"
 date: 2026-07-22
 weight: 3
 chapter: false
+pre : " <b> 5.3. </b> "
 ---
 
 #### 1. Tổng quan Tầng Ứng Dụng Microservices và CSDL RDS

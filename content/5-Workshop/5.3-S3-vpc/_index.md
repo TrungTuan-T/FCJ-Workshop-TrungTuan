@@ -3,6 +3,7 @@ title: "Setup Microservices Cluster and RDS Database"
 date: 2026-07-22
 weight: 3
 chapter: false
+pre : " <b> 5.3. </b> "
 ---
 
 #### 1. Microservices Application & RDS Database Overview

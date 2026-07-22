@@ -3,6 +3,7 @@ title: "Configure VPC Endpoints (S3 & SageMaker) and Policies"
 date: 2026-07-22
 weight: 5
 chapter: false
+pre : " <b> 5.5 </b> "
 ---
 
 #### 1. VPC Endpoints & Endpoint Policies Overview

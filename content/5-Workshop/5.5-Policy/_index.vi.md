@@ -3,6 +3,7 @@ title: "Cấu hình VPC Endpoints (S3 & SageMaker) và Policies"
 date: 2026-07-22
 weight: 5
 chapter: false
+pre : " <b> 5.5 </b> "
 ---
 
 #### 1. Tổng quan VPC Endpoints & Endpoint Policies

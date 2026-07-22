@@ -3,6 +3,7 @@ title: "Chuẩn bị và Phân chia mạng VPC 3-Tier"
 date: 2026-07-10
 weight: 2
 chapter: false
+pre : " <b> 5.2. </b> "
 ---
 
 #### 1. Yêu cầu Quyền IAM (IAM Permissions)

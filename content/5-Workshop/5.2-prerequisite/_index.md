@@ -3,6 +3,7 @@ title: "Prerequisites and 3-Tier VPC Subnet Setup"
 date: 2026-07-22
 weight: 2
 chapter: false
+pre : " <b> 5.2. </b> "
 ---
 
 #### 1. Required IAM Permissions

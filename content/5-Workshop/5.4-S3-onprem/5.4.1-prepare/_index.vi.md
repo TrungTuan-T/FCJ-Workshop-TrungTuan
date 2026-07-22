@@ -3,6 +3,7 @@ title: "Chuẩn bị tệp tĩnh Frontend & Tạo S3 Static Web Bucket"
 date: 2026-07-22
 weight: 1
 chapter: false
+pre : " <b> 5.4.1 </b> "
 ---
 
 #### 1. Tổng quan Bước 5.4.1

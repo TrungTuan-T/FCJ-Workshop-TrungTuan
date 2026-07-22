@@ -3,6 +3,7 @@ title: "Prepare Frontend Static Assets & Create S3 Static Web Bucket"
 date: 2026-07-22
 weight: 1
 chapter: false
+pre : " <b> 5.4.1 </b> "
 ---
 
 #### 1. Step 5.4.1 Overview

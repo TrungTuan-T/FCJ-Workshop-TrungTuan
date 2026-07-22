@@ -3,6 +3,7 @@ title: "Configure AWS CloudFront CDN & Origin Access Control (OAC)"
 date: 2026-07-22
 weight: 2
 chapter: false
+pre : " <b> 5.4.2 </b> "
 ---
 
 #### 1. Step 5.4.2 Overview

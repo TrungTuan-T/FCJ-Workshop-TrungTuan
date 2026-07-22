@@ -3,6 +3,7 @@ title: "Configure AWS WAF Firewall & Edge Monitoring"
 date: 2026-07-22
 weight: 4
 chapter: false
+pre : " <b> 5.4.4 </b> "
 ---
 
 #### 1. Step 5.4.4 Overview

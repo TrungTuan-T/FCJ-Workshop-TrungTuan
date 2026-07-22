@@ -3,6 +3,7 @@ title: "Tích hợp Chứng chỉ SSL HTTPS với AWS Certificate Manager (ACM)"
 date: 2026-07-22
 weight: 3
 chapter: false
+pre : " <b> 5.4.3 </b> "
 ---
 
 #### 1. Tổng quan Bước 5.4.3

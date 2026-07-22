@@ -3,6 +3,7 @@ title: "Configure AWS CloudFront and S3 Static Web"
 date: 2026-07-22
 weight: 4
 chapter: false
+pre : " <b> 5.4. </b> "
 ---
 
 #### 1. Admin Web Frontend Distribution Layer Overview (CloudFront & S3 Static Web)
